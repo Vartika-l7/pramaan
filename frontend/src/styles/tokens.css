@@ -1,0 +1,144 @@
+@import url('https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,400;0,9..144,600;0,9..144,700;0,9..144,900;1,9..144,300;1,9..144,400;1,9..144,700&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&display=swap');
+@import '@fontsource/ibm-plex-mono/400.css';
+@import '@fontsource/ibm-plex-mono/500.css';
+@import '@fontsource/ibm-plex-mono/600.css';
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --ivory: #F4F0E7;
+    --ivory-dark: #EAE6DC;
+    --surface: #FBF9F4;
+    --surface-raised: #FFFFFF;
+    --ink: #252A32;
+    --ink-secondary: #77766F;
+    --ink-tertiary: #A09E97;
+    --border: #DDD9CF;
+    --border-strong: #C4BFB4;
+    --cobalt: #315FCE;
+    --cobalt-light: #EEF2FC;
+    --tomato: #F05A3A;
+    --tomato-light: #FEF0EC;
+    --lime: #D6E36A;
+    --lime-dark: #8FA820;
+    --lime-light: #F5F9DC;
+    --lavender: #B9A4D8;
+    --lavender-dark: #6B4FA8;
+    --lavender-light: #F3F0FB;
+    --ochre: #E7B75B;
+    --ochre-dark: #A07820;
+    --ochre-light: #FDF5E4;
+
+    /* Legacy paper variables mapped to light theme */
+    --paper-bg: #F4F0E7;
+    --paper-dark: #EAE6DC;
+    --paper-panel: #FBF9F4;
+    --paper-border: #DDD9CF;
+    --ink-text: #252A32;
+    --ink-muted: #77766F;
+    --vermilion: #F05A3A;
+  }
+
+  body {
+    background-color: var(--ivory);
+    color: var(--ink);
+    font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  h1, h2, h3, h4, h5, h6, .font-serif {
+    font-family: 'Fraunces', Georgia, serif;
+    letter-spacing: -0.02em;
+  }
+
+  code, pre, .font-mono {
+    font-family: 'IBM Plex Mono', monospace;
+  }
+}
+
+.section-label {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-secondary);
+}
+
+.exhibit-id {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.75rem;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  background: var(--surface-raised);
+  border: 1px solid var(--border);
+  color: var(--ink);
+  padding: 3px 8px;
+  border-radius: 4px;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.anomaly-row-high {
+  border-left: 3px solid var(--tomato);
+  background: var(--tomato-light);
+}
+
+.anomaly-row-medium {
+  border-left: 3px solid var(--ochre);
+  background: var(--ochre-light);
+}
+
+.status-verified {
+  color: #2E7D32;
+  background: #E8F5E9;
+  border-color: #A5D6A7;
+}
+
+.status-lead {
+  color: var(--ochre-dark);
+  background: var(--ochre-light);
+  border-color: var(--ochre);
+}
+
+.status-tamper {
+  color: var(--tomato);
+  background: var(--tomato-light);
+  border-color: var(--tomato);
+}
+
+.status-ai {
+  color: var(--lavender-dark);
+  background: var(--lavender-light);
+  border-color: var(--lavender);
+}
+
+.ledger-row {
+  border-bottom: 1px solid var(--border);
+  transition: background-color 0.15s ease;
+}
+
+.ledger-row:hover {
+  background-color: var(--ivory-dark);
+}
+
+/* Subtle clean scrollbars */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--border-strong);
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--ink-tertiary);
+}

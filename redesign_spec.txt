@@ -1,0 +1,443 @@
+<USER_REQUEST>
+# UI REDESIGN PROMPT — DIGITAL FORENSICS DOSSIER
+
+Act as a senior product designer, creative director and experienced frontend engineer specializing in premium editorial interfaces and complex investigative software.
+
+I already have a FUNCTIONAL frontend for a digital forensic investigation platform.
+
+Your task is to REDESIGN THE EXISTING UI, not rebuild the application.
+
+The platform is a digital forensics dossier and evidence investigation system. Its purpose is to help investigators analyze digital evidence, verify authenticity, identify entities, explore relationships, examine event sequences, review AI-generated claims and generate evidence-backed case packages.
+
+The current functionality is already implemented. I want the application to look substantially more sophisticated, distinctive and professionally designed.
+
+## 1. FIRST: INSPECT THE EXISTING PROJECT
+
+Before writing or modifying any code:
+
+1. Inspect the entire existing frontend structure.
+2. Identify the framework, routing, component structure and styling system.
+3. Identify all existing pages and their current layouts.
+4. Understand which components display real backend data.
+5. Identify existing charts, tables, graphs, drawers, dialogs, filters and interactions.
+6. Identify the existing icon library and available local fonts.
+7. Take note of every existing feature that must be preserved.
+
+Do not immediately start coding.
+
+First understand the existing application and its visual structure.
+
+## 2. NEW VISUAL IDENTITY
+
+Design philosophy: DIGITAL FORENSICS DOSSIER / EVIDENCE TAG FILE.
+
+The application should feel like a sophisticated investigative research environment.
+
+Visual references:
+- Editorial brutalist web design.
+- Swiss grid-based graphic design.
+- High-end investigative publications.
+- Physical evidence documentation and archival files.
+- Modern forensic laboratory interfaces.
+
+The design should feel intentional, restrained, authoritative and premium.
+
+It should NOT resemble a generic SaaS dashboard or an AI-generated admin template.
+
+### Colour system
+
+Use these exact design tokens:
+
+Paper background: #FBF8F3
+Panel background: #FFFFFF
+Secondary paper: #F3EDE4
+Primary ink: #2B1B17
+Secondary ink: #7A5C52
+Borders: #E8D9CC
+Vermilion: #DB4A2B
+
+Semantic status colours:
+
+VERIFIED BY CODE:
+Foreground #2E5E6E
+Background #EBF2F5
+
+LEAD:
+Foreground #C97B1A
+Background #FDF6E9
+
+APPROVED:
+Foreground #3F7D58
+Background #EEF7F1
+
+TAMPER / ALERT:
+Foreground #DB4A2B
+Background #FDF1EE
+
+Use vermilion sparingly. It should immediately attract attention when something is wrong.
+
+### Typography
+
+Use:
+- Source Serif 4 for major headings and editorial section titles.
+- IBM Plex Sans for interface text, navigation, descriptions and labels.
+- IBM Plex Mono for hashes, timestamps, exhibit IDs, technical records and metadata.
+
+Prefer locally bundled fonts. Do not introduce external font network requests.
+
+### Visual rules
+
+- No emojis. Use lucide-react icons.
+- Use icon + text together for all important status badges.
+- Thin, deliberate borders instead of excessive shadows.
+- Editorial typography and strong visual hierarchy.
+- Intentional whitespace.
+- Restrained corner radii.
+- Carefully aligned tables and data.
+- Use asymmetric compositions where appropriate.
+- Avoid repetitive rounded-card layouts.
+- No generic blue-purple gradients.
+- No glassmorphism.
+- No random decorative blobs.
+- No unnecessary animations.
+- No decorative elements that interfere with evidence readability.
+
+## 3. GLOBAL APPLICATION SHELL
+
+Redesign the existing global shell.
+
+### Top case bar
+
+Create a refined case-information header.
+
+It must contain:
+- Case reference: PRM-2026-0042.
+- Synthetic Case indicator.
+- Integrity status.
+- Exhibit count.
+- Merkle root preview.
+- Verify Now action.
+- System capabilities dropdown.
+- Command palette trigger.
+
+The integrity seal should be a visually distinctive component.
+
+When the chain is intact, use a restrained teal treatment.
+
+When integrity is compromised, use a prominent vermilion alert treatment.
+
+Do not change the underlying verification functionality.
+
+### Left navigation rail
+
+Redesign the existing sidebar into a refined investigative navigation system.
+
+Preserve all ten navigation destinations:
+
+1. Overview
+2. Evidence Vault
+3. Entities & People
+4. Knowledge Graph
+5. Event Sequence
+6. Authenticity Checks
+7. Review Queue
+8. Verifier & Challenge
+9. Case Package
+10. Metrics & Benchmark
+
+Use lucide-react icons with clear text labels.
+
+The active navigation item should have a distinctive but restrained visual treatment.
+
+The sidebar should feel like a professional investigative workspace, not a generic admin template.
+
+### Global source viewer drawer
+
+Restyle the existing right-side source viewer.
+
+It should feel like opening an official evidence file.
+
+Preserve:
+- Source record and surrounding context lines.
+- Highlighted matched text.
+- SHA-256 hash.
+- Copy action.
+- Chain-of-custody history.
+- Local file selection and rehash functionality.
+
+Make the raw evidence text the main visual focus.
+
+## 4. PAGE-BY-PAGE VISUAL REDESIGN
+
+IMPORTANT: All existing functionality must remain unchanged.
+
+### PAGE 01 — OVERVIEW
+
+Design this as an investigative case briefing.
+
+Visual hierarchy:
+- Editorial page heading.
+- Case summary and integrity status.
+- Large but restrained metric displays.
+- High-priority forensic leads.
+- Evidence composition visualization.
+- Recent investigation activity.
+
+Metric sections should feel like carefully typeset forensic statistics rather than generic KPI cards.
+
+Make high-severity findings visually distinct.
+
+### PAGE 02 — EVIDENCE VAULT
+
+Design this like a digital evidence archive.
+
+Focus on:
+- Beautifully designed drag-and-drop upload area.
+- Evidence exhibit table.
+- Exhibit ID typography.
+- Hash previews.
+- Ingest timestamps.
+- Parsing status.
+- Custody event history.
+
+Use monospaced typography for technical identifiers.
+
+Make the table extremely readable and professionally structured.
+
+### PAGE 03 — ENTITIES & PEOPLE
+
+Design an entity investigation workspace.
+
+Preserve all existing entity filters.
+
+Improve:
+- Filter tabs.
+- Entity type labels.
+- Search interface.
+- Entity listing.
+- Mention inspection.
+- Occurrence history.
+- Timestamp and character offset displays.
+
+Make extracted entities easy to scan and compare.
+
+### PAGE 04 — KNOWLEDGE GRAPH
+
+This should be one of the most visually impressive screens.
+
+The graph itself should become the centrepiece.
+
+Preserve Cytoscape.js and its existing fcose layout.
+
+Improve the surrounding interface:
+- Refined graph canvas.
+- Clear entity type legend.
+- Distinct node styling.
+- Relationship details panel.
+- Why This Link explanation.
+- Supporting exhibit references.
+- Approve and Reject actions.
+- Mule funnel highlighting.
+
+Use the warm paper interface around the graph, with a darker or more restrained graph canvas if it improves readability.
+
+Do not replace the actual graph with a static illustration.
+
+### PAGE 05 — EVENT SEQUENCE
+
+Design a professional multi-source investigative timeline.
+
+Preserve vis-timeline and its existing interactions.
+
+Improve:
+- Timeline header.
+- Lane switcher.
+- Source/person filters.
+- Event chips.
+- Silence gap visualization.
+- Event details.
+- Spatial thread panel.
+
+The timeline should feel like a carefully organized investigation record.
+
+### PAGE 06 — AUTHENTICITY CHECKS
+
+Make this page resemble a forensic laboratory workstation.
+
+Preserve both existing tabs:
+
+TAB A: IMAGE FORENSICS
+
+- Raw image and ELA heatmap comparison.
+- Metadata differences.
+- pHash matching results.
+- Image evidence details.
+
+TAB B: STATEMENT ARITHMETIC
+
+- Running balance table.
+- Expected versus printed balance.
+- Failed row highlighting.
+- Arithmetic verification status.
+
+Make comparisons visually obvious.
+
+Use vermilion only for actual discrepancies and alerts.
+
+### PAGE 07 — REVIEW QUEUE
+
+Design this as a professional human-review workstation.
+
+Preserve the dual-pane interface.
+
+Left side:
+- Risk-sorted claim queue.
+- Claim status.
+- Severity indicators.
+
+Right side:
+- Proposed claim.
+- Original source record.
+- Supporting exhibit references.
+- Approve, Reject and Edit actions.
+
+Improve the visual hierarchy between AI-generated interpretations and verified source evidence.
+
+Preserve all existing keyboard shortcuts.
+
+### PAGE 08 — VERIFIER & CHALLENGE
+
+Design this like an evidence-validation and cross-examination environment.
+
+Include:
+- Rules V1–V5.
+- Before-and-after comparison.
+- Proposed, verified, removed and rewritten claim counts.
+- Verification results.
+- Defence vulnerability analysis.
+- Prosecution remedies.
+
+Use clear visual distinctions between original claims, verified claims and rejected claims.
+
+### PAGE 09 — CASE PACKAGE
+
+Design this as a formal case-package preparation interface.
+
+Preserve:
+- Package builder.
+- PDF report.
+- BSA Section 63 certificate.
+- Signed manifests.
+- Public key.
+- Offline verifier.
+- Terminal simulator.
+
+Make the package contents feel like a structured collection of official digital documents.
+
+The terminal simulator should have an authentic technical appearance.
+
+### PAGE 10 — METRICS & BENCHMARK
+
+Design this as a technical research and benchmarking report.
+
+Preserve the real empirical statistics.
+
+Create visually engaging:
+- Performance metrics.
+- Detection accuracy.
+- Entity extraction F1 comparisons.
+- SHA-256 throughput.
+- Message parsing throughput.
+- Benchmark comparisons.
+
+Use editorial charts and carefully designed technical data visualizations.
+
+Do not fabricate benchmark numbers.
+
+## 5. INTERACTION DESIGN
+
+Improve the visual experience of existing interactions:
+
+- Hover states.
+- Active navigation.
+- Tabs.
+- Filters.
+- Search.
+- Dropdowns.
+- Tooltips.
+- Drawers.
+- Modals.
+- Buttons.
+- Table row selection.
+- Loading states.
+- Empty states.
+- Success and error notifications.
+
+Use subtle transitions rather than flashy animations.
+
+Maintain accessibility and clear interaction feedback.
+
+## 6. ABSOLUTE DEVELOPMENT CONSTRAINTS
+
+THIS IS A FRONTEND VISUAL REDESIGN ONLY.
+
+Do not:
+- Rebuild the application from scratch.
+- Change backend APIs.
+- Modify data processing logic.
+- Modify hashing or Merkle verification.
+- Rewrite entity extraction.
+- Change AI inference or verification rules.
+- Replace Cytoscape.js or vis-timeline.
+- Remove existing routes.
+- Remove existing functionality.
+- Replace actual backend data with hardcoded dummy data.
+- Create fake metrics.
+- Break existing event handlers.
+- Change the evidence storage or report generation workflow.
+
+Reuse existing components wherever possible.
+
+If a component needs visual improvement, restyle or refactor its presentation without changing its behaviour.
+
+Maintain the existing framework and project dependencies wherever possible.
+
+Do not install unnecessary packages.
+
+## 7. FINAL QUALITY EXPECTATION
+
+The final application should look like a premium digital forensic investigation product designed by a professional product design studio.
+
+It should be:
+- Visually distinctive.
+- Highly readable.
+- Technically sophisticated.
+- Consistent across all ten pages.
+- Functional.
+- Responsive.
+- Appropriate for a serious forensic investigation environment.
+
+Prioritize design quality over adding new features.
+
+Before finishing, test every existing route and major interaction to ensure the redesign has not broken anything.
+
+Make the visual redesign substantial enough that the application feels like a completely different, professionally art-directed product, while its underlying functionality remains exactly the same.
+
+Start by inspecting the existing frontend, then implement the redesign incrementally.
+</USER_REQUEST>
+<ADDITIONAL_METADATA>
+The current local time is: 2026-11-16T19:25:09+05:30.
+
+The user's current state is as follows:
+Active Document: c:\Users\Vartika Sharma\Desktop\pramaan\backend\app\main.py (LANGUAGE_UNSPECIFIED)
+Cursor is on line: 1
+Other open documents:
+- c:\Users\Vartika Sharma\Desktop\pramaan\scripts\seed_demo.py (LANGUAGE_UNSPECIFIED)
+- c:\Users\Vartika Sharma\Desktop\pramaan\scripts\benchmark.py (LANGUAGE_UNSPECIFIED)
+- c:\Users\Vartika Sharma\Desktop\pramaan\scripts\make_dataset.py (LANGUAGE_UNSPECIFIED)
+- c:\Users\Vartika Sharma\Desktop\pramaan\tests\test_phase5_anomalies.py (LANGUAGE_UNSPECIFIED)
+- c:\Users\Vartika Sharma\Desktop\pramaan\frontend\postcss.config.js (LANGUAGE_UNSPECIFIED)
+</ADDITIONAL_METADATA>
+<USER_SETTINGS_CHANGE>
+The user changed setting `Model Selection` from Gemini 3.8 Flash (Low) to Gemini 3.8 Flash (Medium). No need to comment on this change if the user doesn't ask about it. If reporting what model you are, please use a human readable name instead of the exact string.
+</USER_SETTINGS_CHANGE>

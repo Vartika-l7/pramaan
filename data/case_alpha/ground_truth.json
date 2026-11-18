@@ -1,0 +1,142 @@
+{
+  "case_id": "PRM-2026-0042",
+  "title": "Alpha Wealth Club Investment Fraud",
+  "synthetic_notice": "Synthetic case. All persons and identifiers are fictional.",
+  "planted_facts": [
+    {
+      "id": "GT-01",
+      "name": "Cross-Source Identifier Link",
+      "description": "UPI ID vikram.alpha@okaxis appears in WhatsApp chat and as credited VPA in Mule A bank statement.",
+      "type": "SAME_IDENTIFIER",
+      "identifier": "vikram.alpha@okaxis",
+      "sources": [
+        "whatsapp_group_alpha_wealth.txt",
+        "whatsapp_chat_meera_vikram.txt",
+        "bank_statement_mule_A.pdf"
+      ],
+      "tier": "LEAD",
+      "basis": "exact_identifier"
+    },
+    {
+      "id": "GT-02",
+      "name": "Mule Funnel Pattern",
+      "description": "Mule A forwards ~90% of each incoming credit to Mule B and Mule C within 40 minutes.",
+      "type": "PATTERN_FUNNEL",
+      "mule_account": "912345678901",
+      "forwarding_accounts": [
+        "912345678902",
+        "912345678903"
+      ],
+      "forwarding_ratio_min": 0.85,
+      "window_minutes": 40,
+      "sources": [
+        "bank_statement_mule_A.pdf",
+        "bank_statement_mule_B.csv"
+      ],
+      "tier": "LEAD"
+    },
+    {
+      "id": "GT-03",
+      "name": "Shared Device Identifier",
+      "description": "Device ID D1 appears in both call logs, shared by Vikram (+91 90000 10001) and Support Desk (+91 90000 10002).",
+      "type": "SAME_DEVICE",
+      "device_id": "D1",
+      "numbers": [
+        "+91 90000 10001",
+        "+91 90000 10002"
+      ],
+      "sources": [
+        "call_log_device1.csv",
+        "call_log_device2.csv"
+      ],
+      "tier": "LEAD"
+    },
+    {
+      "id": "GT-04",
+      "name": "Chat Timeline Gap",
+      "description": "A 6h 14m silence gap in the WhatsApp group chat on night 3 (14/03/2026 23:45 to 15/03/2026 05:59).",
+      "type": "ANOMALY_CHAT_GAP",
+      "source": "whatsapp_group_alpha_wealth.txt",
+      "gap_duration_minutes": 374,
+      "gap_start": "2026-03-14 23:45",
+      "gap_end": "2026-03-15 05:59",
+      "severity": "HIGH"
+    },
+    {
+      "id": "GT-05",
+      "name": "Out-of-Order Timestamp",
+      "description": "A message at 14:18 appears after a message timestamped 14:35 on 15/03/2026 in the group chat.",
+      "type": "ANOMALY_OUT_OF_ORDER",
+      "source": "whatsapp_group_alpha_wealth.txt",
+      "preceding_time": "15/03/2026 14:35",
+      "failing_time": "15/03/2026 14:18",
+      "severity": "MEDIUM"
+    },
+    {
+      "id": "GT-06",
+      "name": "Edited Screenshot Metadata & ELA Indicator",
+      "description": "Withdrawal screenshot has EXIF Software tag 'PixelMod Editor Pro v2.4', modified later than created, with localized editing artifacts.",
+      "type": "ANOMALY_IMAGE_EDITED",
+      "source": "screenshot_withdrawal_edited.jpg",
+      "software_tag": "PixelMod Editor Pro v2.4",
+      "created_time": "2026:03:15 14:00:00",
+      "modified_time": "2026:03:16 09:30:00",
+      "severity": "HIGH"
+    },
+    {
+      "id": "GT-07",
+      "name": "Reused Media Across Conversations",
+      "description": "Identical promotion certificate image sent in two different formats (PNG and compressed JPEG) with perceptual hash distance <= 2.",
+      "type": "ANOMALY_REUSED_MEDIA",
+      "sources": [
+        "screenshot_reused_a.png",
+        "screenshot_reused_b.jpg"
+      ],
+      "phash_max_distance": 2,
+      "severity": "MEDIUM"
+    },
+    {
+      "id": "GT-08",
+      "name": "Bank Statement Balance Arithmetic Discrepancy",
+      "description": "Mule A bank statement row 8 has broken running balance (printed 2,20,000.00 vs expected 1,90,000.00).",
+      "type": "ANOMALY_BALANCE_MISMATCH",
+      "source": "bank_statement_mule_A.pdf",
+      "failing_row_index": 8,
+      "expected_balance": 190000.0,
+      "found_balance": 220000.0,
+      "severity": "HIGH"
+    },
+    {
+      "id": "GT-09",
+      "name": "Fuzzy Name Variant Resolution",
+      "description": "Variants 'Vikram Sharma', 'Vikram Sharma Ji', and 'विक्रम शर्मा' resolve to the same person as a LEAD edge.",
+      "type": "SAME_PERSON_FUZZY",
+      "variants": [
+        "Vikram Sharma",
+        "Vikram Sharma Ji",
+        "विक्रम शर्मा"
+      ],
+      "target_entity": "Vikram Sharma",
+      "tier": "LEAD"
+    },
+    {
+      "id": "GT-10",
+      "name": "Spatial Cell Tower Movement",
+      "description": "Call logs record cell tower movement from Noida Sector 62 (TOW-NOI-042) to Jaipur Malviya Nagar (TOW-JAI-108) between transfers.",
+      "type": "SPATIAL_THREAD",
+      "locations": [
+        "Noida Sector 62",
+        "Jaipur Malviya Nagar"
+      ],
+      "tower_ids": [
+        "TOW-NOI-042",
+        "TOW-JAI-108"
+      ],
+      "sources": [
+        "call_log_device1.csv",
+        "call_log_device2.csv"
+      ],
+      "tier": "LEAD"
+    }
+  ]
+}

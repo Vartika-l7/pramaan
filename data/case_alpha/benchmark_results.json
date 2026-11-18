@@ -1,0 +1,81 @@
+{
+  "dataset_notice": "Synthetic dataset (Case PRM-2026-0042). Evaluated offline.",
+  "evaluated_at": "2026-11-16T12:13:17Z",
+  "throughput": {
+    "hash_mb_per_sec": 885.9,
+    "hash_sec_per_gb": 1.16,
+    "parse_messages_per_sec": 48.9,
+    "total_events_parsed": 745,
+    "parse_time_sec": 14.426
+  },
+  "accuracy": {
+    "pramaan_precision": 1.0,
+    "pramaan_recall": 0.9,
+    "pramaan_f1": 0.947,
+    "naive_baseline_f1": 0.75,
+    "f1_delta_percent": 19.7
+  },
+  "planted_facts": {
+    "detected_count": 10,
+    "total_count": 10,
+    "detection_rate": 1.0,
+    "fact_details": [
+      {
+        "id": "GT-01",
+        "name": "Cross-Source Identifier Link",
+        "detected": true
+      },
+      {
+        "id": "GT-02",
+        "name": "Mule Funnel Pattern",
+        "detected": true
+      },
+      {
+        "id": "GT-03",
+        "name": "Shared Device Identifier",
+        "detected": true
+      },
+      {
+        "id": "GT-04",
+        "name": "Chat Timeline Gap",
+        "detected": true
+      },
+      {
+        "id": "GT-05",
+        "name": "Out-of-Order Timestamp",
+        "detected": true
+      },
+      {
+        "id": "GT-06",
+        "name": "Edited Screenshot Metadata & ELA Indicator",
+        "detected": true
+      },
+      {
+        "id": "GT-07",
+        "name": "Reused Media Across Conversations",
+        "detected": true
+      },
+      {
+        "id": "GT-08",
+        "name": "Bank Statement Balance Arithmetic Discrepancy",
+        "detected": true
+      },
+      {
+        "id": "GT-09",
+        "name": "Fuzzy Name Variant Resolution",
+        "detected": true
+      },
+      {
+        "id": "GT-10",
+        "name": "Spatial Cell Tower Movement",
+        "detected": true
+      }
+    ]
+  },
+  "claim_verifier": {
+    "proposed": 2,
+    "verified": 1,
+    "removed": 1,
+    "modified": 0
+  }
+}
