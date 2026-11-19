@@ -1,18 +1,22 @@
-"""Image forensic parser (EXIF, perceptual hash, and optional OCR)."""
+"""Image forensic parser (EXIF, perceptual hash, and optional OCR) with reconciliation."""
 
 from __future__ import annotations
 
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import List, Optional
+from typing import List, Optional, Tuple
 import exifread
 import imagehash
 from PIL import Image
 
-from backend.app.parsers.base import BaseParser, ParsedEvent
+from backend.app.parsers.base import BaseParser, ParsedEvent, ParseReport, SkippedUnit, ParseErrorUnit
 
 
 class ImageParser(BaseParser):
+    @property
+    def source_type(self) -> str:
+        return "image"
+
     def can_parse(self, file_path: Path, filename: str) -> bool:
         return filename.lower().endswith((".png", ".jpg", ".jpeg"))
 
@@ -23,12 +27,21 @@ class ImageParser(BaseParser):
         filename: str,
         default_tz: str = "Asia/Kolkata",
     ) -> List[ParsedEvent]:
+        events, _ = self.parse_with_report(file_path, evidence_id, filename, default_tz)
+        return events
+
+    def parse_with_report(
+        self,
+        file_path: Path,
+        evidence_id: str,
+        filename: str,
+        default_tz: str = "Asia/Kolkata",
+    ) -> Tuple[List[ParsedEvent], ParseReport]:
         events: List[ParsedEvent] = []
         exif_data = {}
         phash_str = None
         ocr_text = ""
 
-        # 1. Compute perceptual hash & dimensions via Pillow
         try:
             with Image.open(file_path) as img:
                 phash_str = str(imagehash.phash(img))
@@ -37,7 +50,6 @@ class ImageParser(BaseParser):
         except Exception:
             width, height, format_type = 0, 0, "UNKNOWN"
 
-        # 2. Extract EXIF tags via exifread
         try:
             with open(file_path, "rb") as f:
                 tags = exifread.process_file(f, details=False)
@@ -47,7 +59,6 @@ class ImageParser(BaseParser):
         except Exception:
             pass
 
-        # 3. Optional OCR via pytesseract (never crash if missing)
         try:
             import pytesseract
             with Image.open(file_path) as img:
@@ -55,7 +66,6 @@ class ImageParser(BaseParser):
         except Exception:
             ocr_text = "[OCR unavailable: tesseract not found or language pack missing]"
 
-        # Determine original timestamp from EXIF or fallback to file creation
         ts_original = exif_data.get("EXIF DateTimeOriginal") or exif_data.get("Image DateTime") or datetime.now(timezone.utc).isoformat()
         ts_utc = datetime.now(timezone.utc).isoformat()
 
@@ -82,5 +92,10 @@ class ImageParser(BaseParser):
             )
         )
 
-        return events
+        report = ParseReport(
+            total_units=1,
+            parsed_events=1,
+            unit_name="images",
+        )
 
+        return events, report

@@ -21,7 +21,8 @@ CREATE TABLE IF NOT EXISTS evidence (
     stored_path TEXT NOT NULL,
     parser TEXT,
     parse_status TEXT DEFAULT 'PENDING',
-    parse_notes TEXT
+    parse_notes TEXT,
+    parse_report_json TEXT
 );
 
 CREATE INDEX IF NOT EXISTS idx_evidence_sha256 ON evidence(sha256);
@@ -204,5 +205,11 @@ def init_db(case_id: Optional[str] = None) -> sqlite3.Connection:
     conn = get_db_connection(case_id)
     with conn:
         conn.executescript(SCHEMA_SQL)
+        # Migrate existing schema if parse_report_json column is missing
+        cursor = conn.cursor()
+        cursor.execute("PRAGMA table_info(evidence);")
+        columns = [row[1] for row in cursor.fetchall()]
+        if "parse_report_json" not in columns:
+            cursor.execute("ALTER TABLE evidence ADD COLUMN parse_report_json TEXT;")
     return conn
 

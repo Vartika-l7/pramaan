@@ -6,6 +6,7 @@ import csv
 import json
 import shutil
 import sqlite3
+import uuid
 import zipfile
 from pathlib import Path
 from typing import Dict, Any
@@ -72,6 +73,17 @@ def assemble_case_package(
     # 3. Cryptographically sign manifest with Ed25519
     manifest_bytes = manifest_path.read_bytes()
     sig_b64, pub_b64 = sign_data(manifest_bytes)
+
+    # Record manifest signature in database manifests table for verification
+    manifest_record_id = str(uuid.uuid4())
+    cursor.execute(
+        """
+        INSERT INTO manifests (id, created_at_utc, merkle_root, manifest_json, signature_b64, public_key_b64)
+        VALUES (?, datetime('now'), ?, ?, ?, ?);
+        """,
+        (manifest_record_id, merkle_root, manifest_bytes.decode("utf-8"), sig_b64, pub_b64),
+    )
+    conn.commit()
 
     with open(pkg_dir / "manifest.sig", "w", encoding="utf-8") as f:
         f.write(sig_b64)

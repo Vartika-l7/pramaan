@@ -17,6 +17,7 @@ KEYS_DIR.mkdir(parents=True, exist_ok=True)
 
 DEFAULT_CASE_ID = os.getenv("DEFAULT_CASE_ID", "PRM-2026-0042")
 DEFAULT_TIMEZONE = os.getenv("DEFAULT_TIMEZONE", "Asia/Kolkata")
+MAX_UPLOAD_SIZE_BYTES = int(os.getenv("MAX_UPLOAD_SIZE_BYTES", str(1024 * 1024 * 500)))  # Default 500MB limit
 
 # AI / Ollama configuration
 OLLAMA_HOST = os.getenv("OLLAMA_HOST", "http://localhost:11434")

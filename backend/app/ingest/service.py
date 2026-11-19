@@ -11,10 +11,11 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import BinaryIO, Dict, Any, List, Optional, Tuple
 
-from backend.app.config import EVIDENCE_STORE_DIR, DEFAULT_TIMEZONE
+from backend.app.config import EVIDENCE_STORE_DIR, DEFAULT_TIMEZONE, MAX_UPLOAD_SIZE_BYTES
 from backend.app.integrity.hasher import hash_file
 from backend.app.integrity.custody import append_custody_log, verify_chain
 from backend.app.integrity.merkle import compute_case_merkle_root
+from backend.app.integrity.signer import verify_signature
 
 
 def get_next_exhibit_id(conn: sqlite3.Connection) -> str:
@@ -43,16 +44,29 @@ def ingest_file(
     EVIDENCE_STORE_DIR.mkdir(parents=True, exist_ok=True)
     ts_now = datetime.now(timezone.utc).isoformat()
 
-    # 1. Stream to a temporary file while hashing in 1MB chunks
-    with tempfile.NamedTemporaryFile(delete=False) as tmp_file:
-        tmp_path = Path(tmp_file.name)
-        shutil.copyfileobj(file_obj, tmp_file)
+    # Sanitise filename: extract pure basename to prevent directory traversal
+    clean_filename = Path(filename).name
+    if not clean_filename or clean_filename in (".", ".."):
+        clean_filename = f"exhibit_{uuid.uuid4().hex[:8]}"
 
+    # 1. Stream to a temporary file while enforcing max upload size
+    tmp_path: Optional[Path] = None
     try:
-        sha256_hash = hash_file(tmp_path)
-        size_bytes = tmp_path.stat().st_size
+        with tempfile.NamedTemporaryFile(delete=False) as tmp_file:
+            tmp_path = Path(tmp_file.name)
+            bytes_written = 0
+            while chunk := file_obj.read(1024 * 1024):
+                bytes_written += len(chunk)
+                if bytes_written > MAX_UPLOAD_SIZE_BYTES:
+                    raise ValueError(
+                        f"File size exceeds maximum allowed upload limit of {MAX_UPLOAD_SIZE_BYTES} bytes."
+                    )
+                tmp_file.write(chunk)
 
-        # 2. Store in evidence_store/<sha256>
+        size_bytes = tmp_path.stat().st_size
+        sha256_hash = hash_file(tmp_path)
+
+        # 2. Store in evidence_store/<sha256> (content-addressable immutable store)
         stored_path = EVIDENCE_STORE_DIR / sha256_hash
         if not stored_path.exists():
             shutil.copy2(tmp_path, stored_path)
@@ -62,29 +76,34 @@ def ingest_file(
             except Exception:
                 pass
 
-        # 3. Detect or assign source_type
-        lower_name = filename.lower()
+        # 3. Detect source_type via plugin registry if not explicitly provided
         if source_type is None:
-            if lower_name.endswith(".txt"):
-                source_type = "whatsapp"
-            elif lower_name.endswith(".pdf"):
-                source_type = "bank_pdf"
-            elif lower_name.endswith(".csv"):
-                if "call" in lower_name:
-                    source_type = "calllog"
-                else:
-                    source_type = "bank_csv"
-            elif lower_name.endswith((".png", ".jpg", ".jpeg")):
-                source_type = "image"
-            else:
-                source_type = "unknown"
+            from backend.app.ingest.registry import registry
+            source_type = registry.detect_source_type(stored_path, clean_filename)
 
         # Check if already ingested
         cursor = conn.cursor()
         cursor.execute("SELECT * FROM evidence WHERE sha256 = ?;", (sha256_hash,))
         existing = cursor.fetchone()
         if existing:
-            return dict(existing)
+            # Duplicate upload detected: map to existing exhibit and log custody event
+            existing_dict = dict(existing)
+            append_custody_log(
+                conn,
+                action="DUPLICATE_INGEST_ATTEMPT",
+                actor=actor,
+                evidence_id=existing_dict["id"],
+                details={
+                    "attempted_filename": clean_filename,
+                    "existing_exhibit_id": existing_dict["exhibit_id"],
+                    "sha256": sha256_hash,
+                    "size_bytes": size_bytes,
+                    "note": "Same content already cataloged; re-using existing exhibit record",
+                },
+                ts_utc=ts_now,
+            )
+            conn.commit()
+            return existing_dict
 
         # 4. Assign next exhibit ID & insert into evidence table
         exhibit_id = get_next_exhibit_id(conn)
@@ -98,7 +117,7 @@ def ingest_file(
             (
                 evidence_id,
                 exhibit_id,
-                filename,
+                clean_filename,
                 sha256_hash,
                 size_bytes,
                 source_type,
@@ -114,7 +133,7 @@ def ingest_file(
             action="RECEIVED",
             actor=actor,
             evidence_id=evidence_id,
-            details={"filename": filename, "size_bytes": size_bytes, "source_type": source_type},
+            details={"filename": clean_filename, "size_bytes": size_bytes, "source_type": source_type},
             ts_utc=ts_now,
         )
 
@@ -141,7 +160,7 @@ def ingest_file(
         return {
             "id": evidence_id,
             "exhibit_id": exhibit_id,
-            "filename": filename,
+            "filename": clean_filename,
             "sha256": sha256_hash,
             "size_bytes": size_bytes,
             "source_type": source_type,
@@ -151,7 +170,8 @@ def ingest_file(
         }
 
     finally:
-        if tmp_path.exists():
+        # Guarantee cleanup of temporary file even if exceptions occur during ingest
+        if tmp_path and tmp_path.exists():
             try:
                 tmp_path.unlink()
             except Exception:
@@ -159,7 +179,7 @@ def ingest_file(
 
 
 def verify_case_integrity(conn: sqlite3.Connection) -> Dict[str, Any]:
-    """Perform a rigorous, end-to-end verification of all stored files, Merkle root, and custody chain."""
+    """Perform a rigorous, end-to-end verification of all stored files, Merkle root, custody chain, and manifest signatures."""
     cursor = conn.cursor()
     cursor.execute("SELECT * FROM evidence ORDER BY exhibit_id ASC;")
     evidence_rows = cursor.fetchall()
@@ -222,7 +242,29 @@ def verify_case_integrity(conn: sqlite3.Connection) -> Dict[str, Any]:
     chain_ok, _, chain_err = verify_chain(conn)
     merkle_root, _ = compute_case_merkle_root(conn)
 
-    is_intact = all_files_pass and chain_ok
+    # Manifest signature verification if manifests table has records
+    cursor.execute("SELECT * FROM manifests ORDER BY rowid DESC LIMIT 1;")
+    manifest_row = cursor.fetchone()
+    manifest_verified: Optional[bool] = None
+    manifest_error: Optional[str] = None
+
+    if manifest_row:
+        m_json = manifest_row["manifest_json"]
+        sig = manifest_row["signature_b64"]
+        pub = manifest_row["public_key_b64"]
+        stored_merkle = manifest_row["merkle_root"]
+
+        sig_valid = verify_signature(m_json.encode("utf-8"), sig, pub)
+        if not sig_valid:
+            manifest_verified = False
+            manifest_error = "Ed25519 signature verification failed on manifest"
+        elif stored_merkle != merkle_root:
+            manifest_verified = False
+            manifest_error = f"Manifest Merkle root mismatch: recorded {stored_merkle[:8]}..., recomputed {merkle_root[:8]}..."
+        else:
+            manifest_verified = True
+
+    is_intact = all_files_pass and chain_ok and (manifest_verified is not False)
 
     return {
         "intact": is_intact,
@@ -231,7 +273,8 @@ def verify_case_integrity(conn: sqlite3.Connection) -> Dict[str, Any]:
         "chain_intact": chain_ok,
         "chain_error": chain_err,
         "failed_exhibit": failing_exhibit if not all_files_pass else None,
+        "manifest_verified": manifest_verified,
+        "manifest_error": manifest_error,
         "exhibits": exhibits_result,
         "verified_at_utc": datetime.now(timezone.utc).isoformat(),
     }
-

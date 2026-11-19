@@ -75,6 +75,13 @@ def get_evidence_detail(evidence_id: str, case_id: Optional[str] = Query(None)):
             custody_events.append(d)
 
         res = dict(row)
+        if res.get("parse_report_json"):
+            try:
+                res["parse_report"] = json.loads(res["parse_report_json"])
+            except Exception:
+                res["parse_report"] = None
+        else:
+            res["parse_report"] = None
         res["custody_events"] = custody_events
         return res
     finally:
