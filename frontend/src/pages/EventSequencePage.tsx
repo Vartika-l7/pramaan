@@ -26,6 +26,7 @@ export const EventSequencePage: React.FC = () => {
 
   const openSourceViewer = useAppStore((state) => state.openSourceViewer);
 
+  // Single clean grouping toggle: 'source' vs 'actor'
   const [laneMode, setLaneMode] = useState<'source' | 'actor'>('source');
   const [filterSource, setFilterSource] = useState<string>('ALL');
   const [searchQuery, setSearchQuery] = useState<string>('');
@@ -101,37 +102,47 @@ export const EventSequencePage: React.FC = () => {
           itemClass = 'timeline-chip-call';
         }
 
+        const label = ev.amount ? `₹${ev.amount.toLocaleString()}` : ev.actor || ev.kind;
+
         return {
           id: ev.id,
           group: laneMode === 'source' ? ev.source_type : ev.actor || 'System / Network',
           start: new Date(ev.ts_utc),
-          content: `<div class="truncate font-sans text-xs">${ev.kind}: ${ev.text?.slice(0, 36) || ev.actor || ''}</div>`,
-          className: itemClass,
+          content: `<div class="timeline-event-chip ${itemClass}">
+                      <span class="chip-dot"></span>
+                      <span class="chip-text truncate">${label}</span>
+                    </div>`,
+          title: `${ev.ts_original} (${ev.tz_assumed})\n${ev.actor || 'System'}: ${ev.text || ev.kind}`,
         };
       })
     );
 
-    // Timeline Options (Light Editorial Theme)
-    const options: any = {
+    const options = {
+      stack: true,
+      zoomMin: 1000 * 60 * 60, // 1 hour min zoom
+      zoomMax: 1000 * 60 * 60 * 24 * 30, // 30 days max zoom
       orientation: 'top',
-      stack: false,
-      zoomMin: 1000 * 60 * 15,
-      zoomMax: 1000 * 60 * 60 * 24 * 30,
-      minHeight: '440px',
-      maxHeight: '620px',
-      margin: { item: 10, axis: 6 },
+      maxHeight: '400px',
+      margin: {
+        item: 10,
+        axis: 5,
+      },
+      showCurrentTime: false,
     };
 
     if (timelineInstance.current) {
-      timelineInstance.current.setData({ groups: new DataSet(groups), items });
-    } else {
-      timelineInstance.current = new Timeline(timelineRef.current, items, new DataSet(groups), options);
-      timelineInstance.current.on('select', (props) => {
-        if (props.items && props.items.length > 0) {
-          openSourceViewer(props.items[0]);
-        }
-      });
+      timelineInstance.current.destroy();
     }
+
+    const tl = new Timeline(timelineRef.current, items, groups, options);
+    tl.on('select', (properties) => {
+      if (properties.items && properties.items.length > 0) {
+        const selectedId = properties.items[0];
+        openSourceViewer(selectedId);
+      }
+    });
+
+    timelineInstance.current = tl;
 
     return () => {
       if (timelineInstance.current) {
@@ -139,177 +150,205 @@ export const EventSequencePage: React.FC = () => {
         timelineInstance.current = null;
       }
     };
-  }, [filteredEvents, laneMode, anomalies, openSourceViewer]);
+  }, [filteredEvents, laneMode, anomalies]);
 
   return (
-    <div className="space-y-8 max-w-7xl mx-auto pb-16 font-sans">
-      {/* 1. Header */}
-      <div className="border-b border-border pb-6 flex flex-col md:flex-row md:items-end justify-between gap-4">
-        <div>
-          <div className="flex items-center gap-2">
-            <span className="font-sans text-xs font-bold uppercase tracking-wider text-cobalt bg-cobalt-light px-2.5 py-1 rounded-full">
-              Timeline Reconstruction
-            </span>
-            <span className="text-ink-tertiary">·</span>
-            <span className="font-sans text-xs text-ink-secondary">Multi-Source Synchronized Sequence</span>
-          </div>
-          <h1 className="font-serif font-bold text-3xl sm:text-4xl text-ink mt-2 tracking-tight">
-            Chronological Event Horizon
-          </h1>
-          <p className="text-sm text-ink-secondary mt-2 max-w-3xl leading-relaxed">
-            Correlates 745 multi-modal timestamps across mobile handsets, WhatsApp message exports, bank ledger debits, and telecom cellular tower handoffs.
-          </p>
+    <div className="space-y-6 max-w-7xl mx-auto pb-16 font-sans">
+      {/* Editorial Header */}
+      <section className="space-y-2 border-b border-border pb-6">
+        <div className="flex items-center gap-2">
+          <span className="font-sans text-xs font-bold uppercase tracking-wider text-cobalt bg-cobalt-light px-2.5 py-1 rounded-full">
+            Crime Scene Reconstruction
+          </span>
+          <span className="text-ink-tertiary">·</span>
+          <span className="font-sans text-xs text-ink-secondary">
+            Cross-Source Temporal Alignment
+          </span>
         </div>
 
-        {/* Source Filter Tabs */}
-        <div className="flex items-center gap-1.5 flex-wrap bg-surface-raised p-1.5 rounded-xl border border-border text-xs shadow-xs">
-          {['ALL', 'whatsapp', 'bank_pdf', 'calllog', 'image'].map((st) => (
+        <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
+          <div>
+            <h1 className="font-serif text-3xl sm:text-4xl font-bold text-ink tracking-tight">
+              Automated Event-Sequence Generator
+            </h1>
+            <p className="text-sm text-ink-secondary mt-1 max-w-2xl leading-relaxed">
+              Unified chronological timeline synchronising multi-device WhatsApp messages, bank debits/credits, cell tower handshakes, and image timestamps.
+            </p>
+          </div>
+
+          {/* Grouping Toggle */}
+          <div className="flex items-center gap-2 bg-surface p-1 rounded-lg border border-border text-xs self-start md:self-auto">
+            <span className="px-2 font-medium text-ink-secondary">Group by:</span>
             <button
-              key={st}
               type="button"
-              onClick={() => setFilterSource(st)}
-              className={`px-3 py-1.5 rounded-lg font-sans font-medium uppercase tracking-wider transition-all cursor-pointer ${
-                filterSource === st
-                  ? 'bg-cobalt text-white font-semibold shadow-xs'
-                  : 'text-ink-secondary hover:text-ink hover:bg-ivory'
+              onClick={() => setLaneMode('source')}
+              className={`px-3 py-1 rounded-md font-semibold transition-colors cursor-pointer ${
+                laneMode === 'source'
+                  ? 'bg-cobalt text-white shadow-xs'
+                  : 'text-ink-secondary hover:text-ink'
               }`}
             >
-              {st}
+              Source Lane
             </button>
-          ))}
+            <button
+              type="button"
+              onClick={() => setLaneMode('actor')}
+              className={`px-3 py-1 rounded-md font-semibold transition-colors cursor-pointer ${
+                laneMode === 'actor'
+                  ? 'bg-cobalt text-white shadow-xs'
+                  : 'text-ink-secondary hover:text-ink'
+              }`}
+            >
+              Actor Lane
+            </button>
+          </div>
         </div>
-      </div>
+      </section>
 
-      {/* 2. Interactive Lane Switcher & Search Bar */}
-      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4 bg-surface-raised p-4 rounded-xl border border-border shadow-xs">
-        <div className="flex items-center gap-2">
-          <span className="font-sans text-xs font-bold text-ink-secondary uppercase tracking-wider mr-2">
-            Group Lanes By:
+      {/* Vis Timeline Container */}
+      <div className="bg-surface-raised rounded-xl border border-border p-4 shadow-xs">
+        <div className="flex items-center justify-between pb-3 mb-2 border-b border-border text-xs">
+          <div className="flex items-center gap-2">
+            <Clock className="w-3.5 h-3.5 text-cobalt" />
+            <span className="font-sans font-bold uppercase tracking-wider text-ink">
+              Multi-Source Synchronized Canvas
+            </span>
+          </div>
+          <span className="text-2xs font-mono text-ink-tertiary">
+            CLICK ANY EVENT CHIP TO OPEN EXACT SOURCE
           </span>
-          <button
-            type="button"
-            onClick={() => setLaneMode('source')}
-            className={`px-4 py-2 rounded-lg text-xs font-sans font-semibold transition-all cursor-pointer ${
-              laneMode === 'source'
-                ? 'bg-ink text-white shadow-xs'
-                : 'bg-surface text-ink-secondary hover:text-ink border border-border'
-            }`}
-          >
-            Evidence Source File
-          </button>
-          <button
-            type="button"
-            onClick={() => setLaneMode('actor')}
-            className={`px-4 py-2 rounded-lg text-xs font-sans font-semibold transition-all cursor-pointer ${
-              laneMode === 'actor'
-                ? 'bg-ink text-white shadow-xs'
-                : 'bg-surface text-ink-secondary hover:text-ink border border-border'
-            }`}
-          >
-            Primary Actor / Persona
-          </button>
         </div>
-
-        {/* Search Input */}
-        <div className="relative min-w-[280px]">
-          <Search className="w-4 h-4 text-ink-tertiary absolute left-3.5 top-1/2 -translate-y-1/2" />
-          <input
-            type="text"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search keyword, amount, or persona..."
-            className="w-full text-xs font-sans pl-10 pr-4 py-2 bg-surface rounded-lg border border-border focus:outline-hidden focus:border-cobalt transition-colors text-ink placeholder:text-ink-tertiary"
-          />
-        </div>
+        <div ref={timelineRef} className="h-80 w-full" />
       </div>
 
-      {/* 3. Vis-Timeline Container & Spatial Side Rail */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-        {/* Timeline Canvas (9 Cols) */}
-        <div className="lg:col-span-9 bg-surface-raised border border-border rounded-xl p-5 shadow-xs space-y-4">
-          <div className="flex items-center justify-between border-b border-border pb-3">
-            <span className="font-sans text-xs uppercase tracking-wider font-bold text-ink flex items-center gap-2">
-              <Clock className="w-4 h-4 text-cobalt" />
-              Unified Forensic Timeline View
-            </span>
-            <span className="text-2xs text-ink-secondary">
-              CLICK CHIP TO OPEN EVIDENCE DOSSIER
-            </span>
-          </div>
-
-          {eventsLoading ? (
-            <div className="py-24 text-center text-xs text-ink-secondary">
-              Synchronizing multi-source timestamps...
-            </div>
-          ) : (
-            <div ref={timelineRef} className="timeline-container w-full" />
-          )}
-
-          {/* Timeline Anomaly Notice Banner */}
-          <div className="bg-tomato-light border border-tomato/30 rounded-xl p-4 flex items-start gap-3 text-xs text-ink leading-relaxed">
-            <AlertTriangle className="w-4 h-4 text-tomato shrink-0 mt-0.5" />
-            <div>
-              <span className="font-bold text-tomato block mb-0.5">
-                GT-04 Anomaly: 6-Hour Silence Blackout Window Identified
+      {/* Split Section: Chronological List & Spatial Thread */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Left 2 Cols: Chronological Feed */}
+        <div className="lg:col-span-2 space-y-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <span className="font-sans text-xs font-bold uppercase tracking-wider text-ink">
+                Chronological Event Sequence ({filteredEvents?.length || 0})
               </span>
-              Between <b className="font-mono">14 Mar 23:45 UTC</b> and <b className="font-mono">15 Mar 05:59 UTC</b>, zero incoming or outgoing chat messages were recorded despite automated debit confirmations continuing on mule bank accounts.
+            </div>
+
+            <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1.5 px-2.5 py-1 text-xs border border-border rounded-lg bg-surface">
+                <Search className="w-3.5 h-3.5 text-ink-tertiary" />
+                <input
+                  type="text"
+                  placeholder="Filter events..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="bg-transparent border-none outline-hidden text-xs text-ink w-32 focus:w-44 transition-all"
+                />
+              </div>
             </div>
           </div>
-        </div>
 
-        {/* Spatial Tower & Mobility Side Column (3 Cols) */}
-        <div className="lg:col-span-3 bg-surface-raised border border-border rounded-xl p-5 shadow-xs space-y-4">
-          <div className="flex items-center justify-between border-b border-border pb-3">
-            <span className="font-sans text-xs uppercase tracking-wider font-bold text-ink flex items-center gap-2">
-              <Compass className="w-4 h-4 text-ochre-dark" />
-              Spatial Movement
-            </span>
-            <span className="font-mono text-2xs text-ink-secondary">GT-10</span>
-          </div>
-
-          <p className="text-xs text-ink-secondary leading-relaxed">
-            Cellular tower CDR logs track suspect movement during fund liquidation.
-          </p>
-
-          <div className="space-y-2 pt-1">
-            {Object.keys(locationsMap).length === 0 ? (
-              <div className="text-xs text-ink-secondary">No cell towers found.</div>
+          <div className="space-y-2 max-h-[500px] overflow-y-auto pr-1">
+            {eventsLoading ? (
+              <div className="p-8 text-center text-xs text-ink-secondary">Loading forensic events...</div>
+            ) : filteredEvents?.length === 0 ? (
+              <div className="p-8 text-center text-xs text-ink-secondary">No events match filter.</div>
             ) : (
-              Object.entries(locationsMap).map(([locId, count]) => {
-                const isJaipur = locId.toLowerCase().includes('jaipur');
-                const isSelected = selectedLocation === locId;
-
+              filteredEvents?.map((ev) => {
+                const isAnomaly = anomalies?.some((a) => a.event_ids?.includes(ev.id));
                 return (
-                  <button
-                    key={locId}
-                    type="button"
-                    onClick={() => setSelectedLocation(isSelected ? null : locId)}
-                    className={`w-full text-left p-3 rounded-lg border transition-all cursor-pointer flex items-center justify-between ${
-                      isSelected
-                        ? 'bg-cobalt-light border-cobalt text-cobalt font-semibold'
-                        : isJaipur
-                        ? 'bg-lime-light border-lime-dark/30 hover:border-lime-dark text-ink'
-                        : 'bg-surface border-border hover:bg-ivory text-ink'
+                  <div
+                    key={ev.id}
+                    onClick={() => openSourceViewer(ev.id)}
+                    className={`p-3.5 rounded-xl border bg-surface-raised hover:border-cobalt cursor-pointer transition-all text-xs space-y-1.5 ${
+                      isAnomaly ? 'border-tomato/50 bg-tomato-light/20' : 'border-border'
                     }`}
                   >
-                    <div className="space-y-0.5">
-                      <div className="font-sans text-xs font-semibold flex items-center gap-1.5">
-                        <MapPin className={`w-3.5 h-3.5 ${isJaipur ? 'text-lime-dark' : 'text-ink-secondary'}`} />
-                        <span>{locId}</span>
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <span className="font-mono text-2xs font-bold text-ink-secondary">
+                          {ev.ts_original}
+                        </span>
+                        <span className="text-2xs font-mono text-ink-tertiary">
+                          ({ev.tz_assumed})
+                        </span>
                       </div>
-                      {isJaipur && (
-                        <span className="font-sans text-2xs text-lime-dark font-bold block">
-                          Exit Location (ATM cash-out)
+                      <span className="font-mono text-2xs uppercase px-2 py-0.5 rounded-full bg-ivory border border-border font-semibold">
+                        {ev.source_type}
+                      </span>
+                    </div>
+
+                    <div className="font-medium text-ink text-xs leading-relaxed">
+                      {ev.text || `${ev.kind} transaction`}
+                    </div>
+
+                    <div className="flex items-center justify-between text-2xs text-ink-secondary pt-1 border-t border-border/60">
+                      <span>Actor: <strong className="text-ink">{ev.actor || 'Unknown'}</strong></span>
+                      {ev.amount && (
+                        <span className="font-mono font-bold text-cobalt">
+                          ₹{ev.amount.toLocaleString()}
                         </span>
                       )}
                     </div>
-                    <span className="font-mono text-xs bg-surface-raised px-2 py-0.5 rounded border border-border text-ink-secondary">
-                      {count}
-                    </span>
-                  </button>
+                  </div>
                 );
               })
             )}
+          </div>
+        </div>
+
+        {/* Right Col: Spatial Locations & Anomalies */}
+        <div className="space-y-5">
+          {/* Timeline Anomalies */}
+          <div className="bg-surface-raised rounded-xl border border-border p-4 space-y-3">
+            <div className="flex items-center justify-between border-b border-border pb-2">
+              <span className="font-bold text-xs uppercase tracking-wider text-ink flex items-center gap-1.5">
+                <AlertTriangle className="w-3.5 h-3.5 text-tomato" />
+                Forensic Anomalies ({anomalies?.length || 0})
+              </span>
+            </div>
+            <div className="space-y-2 text-xs">
+              {anomalies?.map((anom) => (
+                <div key={anom.id} className="p-2.5 rounded-lg border border-tomato/30 bg-tomato-light text-tomato space-y-1">
+                  <div className="font-bold text-2xs uppercase">{anom.kind}</div>
+                  <p className="text-2xs leading-normal">{anom.description}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Spatial Threads */}
+          <div className="bg-surface-raised rounded-xl border border-border p-4 space-y-3">
+            <div className="flex items-center justify-between border-b border-border pb-2">
+              <span className="font-bold text-xs uppercase tracking-wider text-ink flex items-center gap-1.5">
+                <MapPin className="w-3.5 h-3.5 text-cobalt" />
+                Cell Tower Locations
+              </span>
+              {selectedLocation && (
+                <button
+                  type="button"
+                  onClick={() => setSelectedLocation(null)}
+                  className="text-2xs text-cobalt font-semibold hover:underline"
+                >
+                  Clear
+                </button>
+              )}
+            </div>
+            <div className="space-y-1.5">
+              {Object.entries(locationsMap).map(([loc, count]) => (
+                <button
+                  key={loc}
+                  type="button"
+                  onClick={() => setSelectedLocation(selectedLocation === loc ? null : loc)}
+                  className={`w-full text-left p-2 rounded-lg text-xs flex items-center justify-between transition-colors ${
+                    selectedLocation === loc ? 'bg-cobalt text-white font-semibold' : 'hover:bg-ivory text-ink'
+                  }`}
+                >
+                  <span className="truncate">{loc}</span>
+                  <span className="font-mono text-2xs px-1.5 py-0.5 rounded bg-surface border border-border">
+                    {count} events
+                  </span>
+                </button>
+              ))}
+            </div>
           </div>
         </div>
       </div>

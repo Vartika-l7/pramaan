@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useNavigate } from 'react-router-dom';
 import {
   ShieldCheck,
   AlertTriangle,
@@ -14,14 +15,25 @@ import {
 import { fetchIntegrityStatus, verifyIntegrity, fetchSystemCapabilities, triggerFullAnalysis } from '../../lib/api';
 import { useAppStore } from '../../lib/store';
 
+const QUICK_ROUTES = [
+  { label: 'Overview', path: '/' },
+  { label: 'Evidence Vault', path: '/evidence' },
+  { label: 'Knowledge Graph', path: '/graph' },
+  { label: 'Event Sequence', path: '/events' },
+  { label: 'Review Queue', path: '/review' },
+  { label: 'Case Package', path: '/package' },
+];
+
 export const CaseBar: React.FC = () => {
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
   const caseId = useAppStore((state) => state.caseId);
-  const setCommandPaletteOpen = useAppStore((state) => state.setCommandPaletteOpen);
   const isAnalyzing = useAppStore((state) => state.isAnalyzing);
   const setIsAnalyzing = useAppStore((state) => state.setIsAnalyzing);
 
   const [capsOpen, setCapsOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchFocused, setSearchFocused] = useState(false);
 
   const { data: integrity, isLoading } = useQuery({
     queryKey: ['integrityStatus'],
@@ -54,6 +66,10 @@ export const CaseBar: React.FC = () => {
   const rootShort = integrity?.merkle_root
     ? `${integrity.merkle_root.slice(0, 8)}...${integrity.merkle_root.slice(-6)}`
     : 'genesis';
+
+  const filteredRoutes = searchQuery
+    ? QUICK_ROUTES.filter((r) => r.label.toLowerCase().includes(searchQuery.toLowerCase()))
+    : [];
 
   return (
     <header className="h-16 border-b border-border bg-surface-raised px-6 flex items-center justify-between gap-4 select-none sticky top-0 z-30">
@@ -123,7 +139,7 @@ export const CaseBar: React.FC = () => {
         </div>
       </div>
 
-      {/* Right: Actions, Capabilities, and Search */}
+      {/* Right: Actions, Capabilities, and Search Box */}
       <div className="flex items-center gap-3 relative">
         <button
           type="button"
@@ -135,7 +151,7 @@ export const CaseBar: React.FC = () => {
           <span>{isAnalyzing ? 'Analyzing Pipeline...' : 'Run Pipeline'}</span>
         </button>
 
-        {/* Forensic Capabilities Dropdown */}
+        {/* Forensic Capabilities Status Popover */}
         <div className="relative">
           <button
             type="button"
@@ -148,74 +164,72 @@ export const CaseBar: React.FC = () => {
           </button>
 
           {capsOpen && (
-            <div className="absolute right-0 mt-2 w-80 bg-surface-raised border border-border rounded-xl shadow-xl p-4 text-xs z-50 animate-in fade-in zoom-in-95">
-              <div className="flex items-center justify-between border-b border-border pb-2.5 mb-3">
+            <div className="absolute right-0 mt-2 w-72 bg-surface-raised border border-border rounded-xl shadow-xl p-3.5 text-xs z-50 animate-in fade-in zoom-in-95">
+              <div className="flex items-center justify-between border-b border-border pb-2 mb-2.5">
                 <span className="font-sans text-xs uppercase font-bold tracking-wider text-ink">
-                  Active Forensic Engines
+                  Forensic Engines
                 </span>
                 <span className="text-2xs font-sans font-bold text-lime-dark bg-lime-light px-2 py-0.5 rounded-full border border-lime-dark/30">
                   OFFLINE
                 </span>
               </div>
-              <div className="space-y-2.5">
+              <div className="space-y-2 text-xs">
                 <div className="flex items-center justify-between">
-                  <span className="text-ink-secondary">Local AI (Ollama):</span>
-                  <span
-                    className={`font-sans font-semibold flex items-center gap-1 ${
-                      caps?.ollama.available ? 'text-lime-dark' : 'text-ochre-dark'
-                    }`}
-                  >
-                    {caps?.ollama.available ? (
-                      <CheckCircle2 className="w-3.5 h-3.5" />
-                    ) : (
-                      <XCircle className="w-3.5 h-3.5" />
-                    )}
-                    {caps?.ollama.available ? 'Connected' : 'Deterministic Mode'}
+                  <span className="text-ink-secondary">Local AI:</span>
+                  <span className={`font-semibold flex items-center gap-1 ${caps?.ollama.available ? 'text-lime-dark' : 'text-ochre-dark'}`}>
+                    {caps?.ollama.available ? <CheckCircle2 className="w-3.5 h-3.5" /> : <XCircle className="w-3.5 h-3.5" />}
+                    {caps?.ollama.available ? 'Ollama' : 'Deterministic'}
                   </span>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span className="text-ink-secondary">OCR Engine (Tesseract):</span>
-                  <span
-                    className={`font-sans font-semibold flex items-center gap-1 ${
-                      caps?.tesseract.available ? 'text-lime-dark' : 'text-ink-tertiary'
-                    }`}
-                  >
-                    {caps?.tesseract.available ? (
-                      <CheckCircle2 className="w-3.5 h-3.5" />
-                    ) : (
-                      <XCircle className="w-3.5 h-3.5" />
-                    )}
-                    {caps?.tesseract.available ? 'Ready (hin+eng)' : 'Unavailable'}
+                  <span className="text-ink-secondary">OCR:</span>
+                  <span className={`font-semibold flex items-center gap-1 ${caps?.tesseract.available ? 'text-lime-dark' : 'text-ink-tertiary'}`}>
+                    {caps?.tesseract.available ? <CheckCircle2 className="w-3.5 h-3.5" /> : <XCircle className="w-3.5 h-3.5" />}
+                    {caps?.tesseract.available ? 'Tesseract' : 'Unavailable'}
                   </span>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span className="text-ink-secondary">Bank PDF Engine:</span>
-                  <span className="font-sans font-semibold text-ink">
-                    {caps?.pdf_engine.engine || 'pdfplumber + reportlab'}
-                  </span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-ink-secondary">IndicNER Pipeline:</span>
-                  <span className="font-sans font-medium text-ink-secondary">
-                    {caps?.indic_ner.enabled ? 'Active (AI4Bharat)' : 'Rule-Based Gazetteer'}
-                  </span>
+                  <span className="text-ink-secondary">PDF Engine:</span>
+                  <span className="font-semibold text-ink">{caps?.pdf_engine.engine || 'pdfplumber'}</span>
                 </div>
               </div>
             </div>
           )}
         </div>
 
-        {/* Command Palette Trigger */}
-        <button
-          type="button"
-          onClick={() => setCommandPaletteOpen(true)}
-          className="flex items-center gap-2 px-2.5 py-1.5 text-xs text-ink-secondary border border-border rounded-lg bg-surface hover:text-ink hover:border-ink-tertiary transition-colors cursor-pointer"
-        >
-          <Search className="w-3.5 h-3.5 text-ink-tertiary" />
-          <kbd className="font-mono text-2xs bg-surface-raised border border-border px-1.5 py-0.5 rounded text-ink-secondary">
-            ⌘K
-          </kbd>
-        </button>
+        {/* Clean Unified Search Box (replacing heavy Command Palette) */}
+        <div className="relative">
+          <div className="flex items-center gap-2 px-2.5 py-1 text-xs text-ink-secondary border border-border rounded-lg bg-surface focus-within:border-cobalt transition-colors">
+            <Search className="w-3.5 h-3.5 text-ink-tertiary shrink-0" />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              onFocus={() => setSearchFocused(true)}
+              onBlur={() => setTimeout(() => setSearchFocused(false), 200)}
+              placeholder="Quick search..."
+              className="bg-transparent border-none outline-hidden text-xs text-ink placeholder:text-ink-tertiary w-28 focus:w-40 transition-all font-sans"
+            />
+          </div>
+
+          {searchFocused && filteredRoutes.length > 0 && (
+            <div className="absolute right-0 mt-1.5 w-44 bg-surface-raised border border-border rounded-lg shadow-lg py-1 z-50 text-xs">
+              {filteredRoutes.map((r) => (
+                <button
+                  key={r.path}
+                  type="button"
+                  onMouseDown={() => {
+                    navigate(r.path);
+                    setSearchQuery('');
+                  }}
+                  className="w-full text-left px-3 py-1.5 hover:bg-ivory cursor-pointer text-ink font-sans flex items-center justify-between"
+                >
+                  <span>{r.label}</span>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
     </header>
   );

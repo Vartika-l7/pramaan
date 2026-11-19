@@ -3,29 +3,20 @@ import { NavLink } from 'react-router-dom';
 import {
   LayoutDashboard,
   FolderArchive,
-  Users,
   Network,
   Clock,
-  Fingerprint,
   CheckSquare,
-  Scale,
   Package,
-  BarChart3,
   Shield,
-  FileCheck,
 } from 'lucide-react';
 
 const NAV_ITEMS = [
   { index: '01', to: '/', label: 'Overview', icon: LayoutDashboard },
   { index: '02', to: '/evidence', label: 'Evidence Vault', icon: FolderArchive },
-  { index: '03', to: '/entities', label: 'Entities & People', icon: Users },
-  { index: '04', to: '/graph', label: 'Knowledge Graph', icon: Network },
-  { index: '05', to: '/events', label: 'Event Sequence', icon: Clock },
-  { index: '06', to: '/authenticity', label: 'Authenticity Checks', icon: Fingerprint },
-  { index: '07', to: '/review', label: 'Review Queue', icon: CheckSquare },
-  { index: '08', to: '/verifier', label: 'Verifier & Challenge', icon: Scale },
-  { index: '09', to: '/package', label: 'Case Package', icon: Package },
-  { index: '10', to: '/metrics', label: 'Metrics & Benchmark', icon: BarChart3 },
+  { index: '03', to: '/graph', label: 'Knowledge Graph', icon: Network },
+  { index: '04', to: '/events', label: 'Event Sequence', icon: Clock },
+  { index: '05', to: '/review', label: 'Review Queue', icon: CheckSquare },
+  { index: '06', to: '/package', label: 'Case Package', icon: Package },
 ];
 
 export const LeftRail: React.FC = () => {
@@ -53,7 +44,7 @@ export const LeftRail: React.FC = () => {
         {/* Section Title */}
         <div className="px-2 mb-2">
           <span className="font-sans text-xs font-bold uppercase tracking-widest text-ink-tertiary">
-            Investigation Modules
+            Core Modules
           </span>
         </div>
 
@@ -101,21 +92,15 @@ export const LeftRail: React.FC = () => {
         </nav>
       </div>
 
-      {/* Footer / Trust Badge */}
-      <div className="p-5 border-t border-border bg-ivory/50">
-        <div className="flex items-center gap-2.5">
-          <div className="w-7 h-7 rounded-md bg-lime-light flex items-center justify-center text-lime-dark shrink-0">
-            <FileCheck className="w-4 h-4" />
-          </div>
-          <div>
-            <div className="font-sans text-xs font-bold text-ink">
-              Section 63 BSA Ready
-            </div>
-            <div className="font-sans text-2xs text-ink-secondary">
-              Immutable chain-of-custody
-            </div>
-          </div>
+      {/* Footer Info */}
+      <div className="p-6 border-t border-border bg-surface-raised/50 text-xs font-sans text-ink-tertiary space-y-1">
+        <div className="flex items-center justify-between font-mono text-2xs font-semibold">
+          <span>STATUS: OFFLINE</span>
+          <span className="text-lime-dark font-bold">AIR-GAPPED</span>
         </div>
+        <p className="text-2xs leading-relaxed text-ink-secondary">
+          Compliant with Section 65B Indian Evidence Act digital custody standards.
+        </p>
       </div>
     </aside>
   );

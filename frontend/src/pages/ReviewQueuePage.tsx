@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   CheckSquare,
@@ -13,6 +13,9 @@ import {
   Keyboard,
   FileText,
   Sparkles,
+  Scale,
+  AlertTriangle,
+  Play,
 } from 'lucide-react';
 import { fetchEventSource } from '../lib/api';
 import { TierBadge } from '../components/ui/TierBadge';
@@ -24,6 +27,7 @@ export const ReviewQueuePage: React.FC = () => {
   const [selectedIndex, setSelectedIndex] = useState<number>(0);
   const [isEditing, setIsEditing] = useState<boolean>(false);
   const [editedText, setEditedText] = useState<string>('');
+  const [showChallenge, setShowChallenge] = useState<boolean>(false);
 
   const { data: queueData, isLoading } = useQuery({
     queryKey: ['reviewQueue'],
@@ -44,320 +48,232 @@ export const ReviewQueuePage: React.FC = () => {
     enabled: !!primaryRefId,
   });
 
+  // Folded Challenger Cross-examination
+  const { data: challengeData, mutate: runChallenge, isPending: challengePending } = useMutation({
+    mutationFn: async () => {
+      const res = await fetch('/api/challenge/run', { method: 'POST' });
+      return res.json();
+    },
+  });
+
   const reviewMutation = useMutation({
     mutationFn: async ({
       itemId,
       decision,
-      modifiedText,
+      newText,
     }: {
       itemId: string;
-      decision: string;
-      modifiedText?: string;
+      decision: 'APPROVED' | 'REJECTED';
+      newText?: string;
     }) => {
-      const res = await fetch(`/api/review/${itemId}`, {
+      const res = await fetch('/api/review/decision', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ decision, modified_text: modifiedText }),
+        body: JSON.stringify({
+          item_type: currentItem?.item_type || 'claim',
+          item_id: itemId,
+          decision,
+          new_text: newText,
+        }),
       });
       return res.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['reviewQueue'] });
       setIsEditing(false);
+      setEditedText('');
+      if (selectedIndex >= items.length - 1) {
+        setSelectedIndex(Math.max(0, items.length - 2));
+      }
     },
   });
 
-  // Hotkey navigation
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (isEditing) return;
+  const handleApprove = () => {
+    if (!currentItem) return;
+    reviewMutation.mutate({
+      itemId: currentItem.id,
+      decision: 'APPROVED',
+      newText: isEditing ? editedText : undefined,
+    });
+  };
 
-      if (e.key === 'j' || e.key === 'ArrowDown') {
-        setSelectedIndex((prev) => Math.min(prev + 1, items.length - 1));
-      } else if (e.key === 'k' || e.key === 'ArrowUp') {
-        setSelectedIndex((prev) => Math.max(prev - 1, 0));
-      } else if (e.key === 'a' && currentItem) {
-        reviewMutation.mutate({ itemId: currentItem.id, decision: 'APPROVED' });
-      } else if (e.key === 'r' && currentItem) {
-        reviewMutation.mutate({ itemId: currentItem.id, decision: 'REJECTED' });
-      } else if (e.key === 'e' && currentItem) {
-        setIsEditing(true);
-        setEditedText(currentItem.text || currentItem.reason_text || '');
-      }
-    };
-
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [items.length, currentItem, isEditing]);
+  const handleReject = () => {
+    if (!currentItem) return;
+    reviewMutation.mutate({
+      itemId: currentItem.id,
+      decision: 'REJECTED',
+    });
+  };
 
   return (
-    <div className="h-[calc(100vh-8rem)] flex flex-col space-y-4 max-w-7xl mx-auto font-sans">
-      {/* Top Header */}
-      <div className="flex items-center justify-between border-b border-border pb-4 shrink-0">
-        <div>
-          <div className="flex items-center gap-2">
-            <span className="font-sans text-xs font-bold uppercase tracking-wider text-cobalt bg-cobalt-light px-2.5 py-1 rounded-full">
-              Adjudication Desk
-            </span>
-            <span className="text-ink-tertiary">·</span>
-            <span className="font-sans text-xs text-ink-secondary">Human-in-the-Loop Queue</span>
-          </div>
-          <h1 className="font-serif font-bold text-3xl text-ink mt-1 tracking-tight">
-            AI Claim & Relationship Review
-          </h1>
-        </div>
-
-        {/* Hotkey Guide Pill */}
-        <div className="hidden md:flex items-center gap-3 bg-surface-raised px-4 py-2 rounded-xl border border-border text-xs text-ink-secondary shadow-xs">
-          <span className="font-semibold text-ink flex items-center gap-1.5">
-            <Keyboard className="w-3.5 h-3.5 text-cobalt" />
-            Hotkeys:
-          </span>
-          <span><kbd className="font-mono bg-ivory px-1.5 py-0.5 rounded border border-border font-bold text-ink">J</kbd> / <kbd className="font-mono bg-ivory px-1.5 py-0.5 rounded border border-border font-bold text-ink">K</kbd> navigate</span>
-          <span><kbd className="font-mono bg-ivory px-1.5 py-0.5 rounded border border-border font-bold text-ink">A</kbd> approve</span>
-          <span><kbd className="font-mono bg-ivory px-1.5 py-0.5 rounded border border-border font-bold text-ink">R</kbd> reject</span>
-          <span><kbd className="font-mono bg-ivory px-1.5 py-0.5 rounded border border-border font-bold text-ink">E</kbd> edit</span>
-        </div>
-      </div>
-
-      {/* Split Dual-Pane View */}
-      <div className="flex-1 grid grid-cols-1 lg:grid-cols-12 gap-6 min-h-0">
-        {/* LEFT PANE (5 COLS): RISK-SORTED REVIEW QUEUE */}
-        <div className="lg:col-span-5 bg-surface-raised border border-border rounded-xl flex flex-col min-h-0 shadow-xs overflow-hidden">
-          <div className="p-4 border-b border-border bg-surface flex items-center justify-between shrink-0">
-            <span className="text-xs font-bold text-ink uppercase tracking-wider">
-              Pending Adjudication ({items.length})
-            </span>
-            <span className="text-2xs text-ink-secondary font-mono">
-              SORTED BY FORENSIC RISK
-            </span>
-          </div>
-
-          <div className="flex-1 overflow-y-auto divide-y divide-border/60">
-            {isLoading ? (
-              <div className="p-10 text-center text-xs text-ink-secondary">Loading verification queue...</div>
-            ) : items.length === 0 ? (
-              <div className="p-10 text-center text-xs text-ink-secondary">All AI claims adjudicated. Queue clear.</div>
-            ) : (
-              items.map((item, idx) => {
-                const isSelected = idx === selectedIndex;
-                const isClaim = !!item.text;
-
-                return (
-                  <div
-                    key={item.id}
-                    onClick={() => {
-                      setSelectedIndex(idx);
-                      setIsEditing(false);
-                    }}
-                    className={`p-4 transition-all cursor-pointer ${
-                      isSelected
-                        ? 'bg-cobalt-light/50 border-l-4 border-l-cobalt shadow-xs'
-                        : 'hover:bg-ivory/60'
-                    }`}
-                  >
-                    <div className="flex items-center justify-between text-xs mb-2">
-                      <div className="flex items-center gap-2">
-                        <span className="font-mono text-xs font-bold text-ink-secondary">
-                          #{String(idx + 1).padStart(2, '0')}
-                        </span>
-                        <span className="font-sans text-2xs uppercase tracking-wider font-bold px-2 py-0.5 rounded-full bg-surface-raised border border-border text-ink">
-                          {isClaim ? 'AI CLAIM' : 'GRAPH EDGE'}
-                        </span>
-                      </div>
-                      <TierBadge tier={item.tier || 'LEAD'} size="sm" />
-                    </div>
-
-                    <p className="text-xs text-ink line-clamp-2 leading-relaxed font-sans font-medium">
-                      {item.text || item.reason_text}
-                    </p>
-
-                    <div className="mt-2.5 flex items-center justify-between text-2xs text-ink-secondary">
-                      <span>Citations: {item.refs?.length || item.event_ids?.length || 0} exhibit records</span>
-                      <span className="font-mono text-ink-tertiary">{item.id.slice(0, 10)}</span>
-                    </div>
-                  </div>
-                );
-              })
-            )}
-          </div>
-        </div>
-
-        {/* RIGHT PANE (7 COLS): EVIDENCE CITATION INSPECTION */}
-        <div className="lg:col-span-7 bg-surface-raised border border-border rounded-xl flex flex-col min-h-0 shadow-xs overflow-hidden">
-          {currentItem ? (
-            <div className="flex-1 flex flex-col min-h-0">
-              {/* Item Header */}
-              <div className="p-6 border-b border-border bg-surface shrink-0 space-y-4">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2.5">
-                    <span className="font-mono text-xs font-bold text-cobalt bg-cobalt-light px-2.5 py-1 rounded-md border border-cobalt/20">
-                      ITEM {String(selectedIndex + 1).padStart(2, '0')}
-                    </span>
-                    <span className="font-sans text-xs uppercase tracking-wider font-bold text-ink-secondary">
-                      {currentItem.kind || currentItem.edge_type}
-                    </span>
-                  </div>
-
-                  {/* Decision Action Buttons */}
-                  <div className="flex items-center gap-2">
-                    <button
-                      type="button"
-                      onClick={() =>
-                        reviewMutation.mutate({ itemId: currentItem.id, decision: 'APPROVED' })
-                      }
-                      className="flex items-center gap-1.5 px-3.5 py-1.5 bg-lime-light hover:bg-lime-light/80 text-lime-dark text-xs font-sans font-bold rounded-lg border border-lime-dark/30 transition-all cursor-pointer shadow-xs"
-                    >
-                      <Check className="w-4 h-4" />
-                      <span>Approve [A]</span>
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() =>
-                        reviewMutation.mutate({ itemId: currentItem.id, decision: 'REJECTED' })
-                      }
-                      className="flex items-center gap-1.5 px-3.5 py-1.5 bg-tomato-light hover:bg-tomato-light/80 text-tomato text-xs font-sans font-bold rounded-lg border border-tomato/30 transition-all cursor-pointer shadow-xs"
-                    >
-                      <X className="w-4 h-4" />
-                      <span>Reject [R]</span>
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setIsEditing(!isEditing);
-                        setEditedText(currentItem.text || currentItem.reason_text || '');
-                      }}
-                      className="flex items-center gap-1.5 px-3 py-1.5 bg-surface hover:bg-ivory text-ink text-xs font-sans font-semibold rounded-lg border border-border transition-all cursor-pointer shadow-xs"
-                    >
-                      <Edit2 className="w-3.5 h-3.5" />
-                      <span>Edit [E]</span>
-                    </button>
-                  </div>
-                </div>
-
-                {/* Proposed Claim Prose or Edit Mode */}
-                {isEditing ? (
-                  <div className="space-y-3 pt-2">
-                    <textarea
-                      value={editedText}
-                      onChange={(e) => setEditedText(e.target.value)}
-                      rows={3}
-                      className="w-full text-sm font-sans text-ink bg-surface-raised border border-cobalt rounded-lg p-3.5 focus:outline-hidden ring-2 ring-cobalt/20"
-                    />
-                    <div className="flex justify-end gap-2">
-                      <button
-                        type="button"
-                        onClick={() => setIsEditing(false)}
-                        className="px-3 py-1 text-xs text-ink-secondary hover:text-ink cursor-pointer"
-                      >
-                        Cancel
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() =>
-                          reviewMutation.mutate({
-                            itemId: currentItem.id,
-                            decision: 'APPROVED',
-                            modifiedText: editedText,
-                          })
-                        }
-                        className="px-4 py-1.5 bg-cobalt text-white text-xs font-sans font-semibold rounded-lg hover:bg-cobalt-dark transition-colors cursor-pointer"
-                      >
-                        Save &amp; Approve
-                      </button>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="pt-1">
-                    <span className="text-2xs font-sans uppercase tracking-wider text-ink-tertiary font-bold block mb-1">
-                      Proposed Forensic Claim
-                    </span>
-                    <p className="font-serif text-lg font-bold text-ink leading-relaxed">
-                      "{currentItem.text || currentItem.reason_text}"
-                    </p>
-                  </div>
-                )}
-              </div>
-
-              {/* Source Evidence Context */}
-              <div className="flex-1 overflow-y-auto p-6 space-y-6">
-                <div>
-                  <div className="flex items-center justify-between mb-3">
-                    <span className="font-sans text-xs uppercase tracking-wider font-bold text-ink flex items-center gap-2">
-                      <FileCode className="w-4 h-4 text-cobalt" />
-                      Underlying Source Citation &amp; Context
-                    </span>
-                    <span className="font-sans text-2xs text-lime-dark font-bold bg-lime-light px-2.5 py-1 rounded-full border border-lime-dark/30">
-                      SEC. 63 BSA IMMUTABLE
-                    </span>
-                  </div>
-
-                  {sourceContext ? (
-                    <div className="space-y-4">
-                      {/* File Coordinates */}
-                      <div className="bg-surface p-4 rounded-xl border border-border flex items-center justify-between text-xs font-sans">
-                        <div>
-                          <span className="text-ink-secondary">Exhibit File: </span>
-                          <span className="font-bold text-ink">{sourceContext.filename}</span>
-                        </div>
-                        <div className="font-mono text-2xs text-ink-secondary">
-                          SHA-256: {sourceContext.sha256?.slice(0, 16)}...
-                        </div>
-                      </div>
-
-                      {/* Raw Artifact Extract Window */}
-                      <div className="bg-ivory-dark/40 text-ink font-mono text-xs p-5 rounded-xl border border-border leading-relaxed overflow-x-auto space-y-1">
-                        {sourceContext.context_before?.map((line: string, i: number) => (
-                          <div key={`b-${i}`} className="text-ink-tertiary opacity-60">
-                            {line || ' '}
-                          </div>
-                        ))}
-
-                        <div className="bg-ochre-light text-ink font-semibold my-2 px-3 py-1.5 rounded border-l-4 border-ochre-dark shadow-xs">
-                          {sourceContext.target_lines?.map((line: string, i: number) => (
-                            <div key={`t-${i}`}>{line}</div>
-                          ))}
-                        </div>
-
-                        {sourceContext.context_after?.map((line: string, i: number) => (
-                          <div key={`a-${i}`} className="text-ink-tertiary opacity-60">
-                            {line || ' '}
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="p-8 text-center text-xs text-ink-secondary bg-surface rounded-xl border border-border">
-                      Loading raw database source context lines...
-                    </div>
-                  )}
-                </div>
-
-                {/* Exhibit References Chip List */}
-                <div>
-                  <span className="font-sans text-2xs uppercase tracking-wider text-ink-tertiary font-bold block mb-2">
-                    Referenced Exhibit IDs
-                  </span>
-                  <div className="flex items-center gap-2 flex-wrap">
-                    {(currentItem.refs || currentItem.event_ids || []).map((ref: string) => (
-                      <ExhibitChip key={ref} exhibitId={ref.slice(0, 10)} eventId={ref} />
-                    ))}
-                  </div>
-                </div>
-              </div>
+    <div className="space-y-6 max-w-7xl mx-auto pb-16 font-sans">
+      {/* Header */}
+      <section className="space-y-2 border-b border-border pb-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <div className="flex items-center gap-2 mb-1">
+              <span className="font-sans text-xs font-bold uppercase tracking-wider text-cobalt bg-cobalt-light px-2.5 py-1 rounded-full">
+                Human-in-the-Loop Review
+              </span>
+              <span className="text-ink-tertiary">·</span>
+              <span className="font-sans text-xs text-ink-secondary">
+                Only Approved Items Enter Court Report
+              </span>
             </div>
-          ) : (
-            <div className="flex-1 flex flex-col items-center justify-center p-10 text-center text-ink-secondary space-y-2">
-              <CheckSquare className="w-10 h-10 opacity-30 text-ink" />
-              <div className="font-serif text-lg font-semibold text-ink">No Item Selected</div>
-              <p className="text-xs max-w-sm">
-                Select a forensic claim or relationship edge from the left queue to inspect its raw evidentiary basis.
+            <h1 className="font-serif text-3xl sm:text-4xl font-bold text-ink tracking-tight">
+              Investigator Admissibility Queue
+            </h1>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => {
+              setShowChallenge(!showChallenge);
+              if (!challengeData) runChallenge();
+            }}
+            className="flex items-center gap-2 px-3.5 py-2 bg-surface hover:bg-ivory border border-border rounded-lg text-xs font-sans font-semibold text-ink transition-colors cursor-pointer"
+          >
+            <Scale className="w-4 h-4 text-cobalt" />
+            <span>{challengePending ? 'Cross-Examining...' : 'Assistant Cross-Examination'}</span>
+          </button>
+        </div>
+      </section>
+
+      {/* Folded Challenge Action Drawer */}
+      {showChallenge && (
+        <div className="bg-surface-raised border border-border rounded-xl p-5 shadow-sm space-y-3 animate-in fade-in duration-150">
+          <div className="flex items-center justify-between border-b border-border pb-2">
+            <span className="font-bold text-xs uppercase tracking-wider text-ink flex items-center gap-1.5">
+              <Scale className="w-4 h-4 text-cobalt" />
+              Challenger AI Adversarial Analysis
+            </span>
+            <button type="button" onClick={() => setShowChallenge(false)} className="text-xs text-ink-tertiary hover:text-ink">
+              Close
+            </button>
+          </div>
+          {challengePending ? (
+            <div className="text-xs text-ink-secondary py-4 text-center">Simulating adversarial cross-examination...</div>
+          ) : challengeData ? (
+            <div className="space-y-2 text-xs">
+              <div className="text-ink font-semibold">Defensive Counter-Arguments:</div>
+              <p className="text-ink-secondary bg-surface p-3 rounded-lg border border-border leading-relaxed">
+                {challengeData.arguments || challengeData.summary || 'No fatal evidentiary contradictions discovered across current approved items.'}
               </p>
             </div>
+          ) : (
+            <div className="text-xs text-ink-secondary">Click to run adversarial cross-examination.</div>
           )}
         </div>
+      )}
+
+      {/* Main Review Queue Interface */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Left Col: Pending Items List */}
+        <div className="space-y-2 max-h-[600px] overflow-y-auto pr-1">
+          <div className="text-xs font-bold uppercase tracking-wider text-ink-secondary px-1 mb-2">
+            Pending Admissibility ({items.length})
+          </div>
+          {isLoading ? (
+            <div className="p-8 text-center text-xs text-ink-secondary">Loading queue...</div>
+          ) : items.length === 0 ? (
+            <div className="p-8 text-center text-xs text-ink-secondary bg-surface rounded-xl border border-border">
+              All proposed findings have been reviewed.
+            </div>
+          ) : (
+            items.map((item, idx) => (
+              <div
+                key={item.id}
+                onClick={() => {
+                  setSelectedIndex(idx);
+                  setIsEditing(false);
+                }}
+                className={`p-3.5 rounded-xl border cursor-pointer transition-all text-xs space-y-1.5 ${
+                  selectedIndex === idx ? 'bg-cobalt-light/40 border-cobalt' : 'bg-surface hover:bg-ivory border-border'
+                }`}
+              >
+                <div className="flex items-center justify-between">
+                  <TierBadge tier={item.tier || 'LEAD'} />
+                  <span className="font-mono text-2xs uppercase text-ink-tertiary">
+                    {item.item_type || 'claim'}
+                  </span>
+                </div>
+                <p className="font-medium text-ink line-clamp-2 leading-relaxed">
+                  {item.text || item.reason_text}
+                </p>
+              </div>
+            ))
+          )}
+        </div>
+
+        {/* Right 2 Cols: Decision Workspace */}
+        {currentItem && (
+          <div className="lg:col-span-2 bg-surface-raised border border-border rounded-xl p-6 space-y-5 shadow-xs">
+            <div className="flex items-center justify-between border-b border-border pb-3">
+              <span className="font-bold text-xs uppercase tracking-wider text-ink">
+                Item #{selectedIndex + 1} of {items.length}
+              </span>
+              <TierBadge tier={currentItem.tier || 'LEAD'} />
+            </div>
+
+            <div className="space-y-2">
+              <span className="text-2xs font-bold uppercase tracking-wider text-ink-tertiary">Proposed Finding</span>
+              {isEditing ? (
+                <textarea
+                  value={editedText}
+                  onChange={(e) => setEditedText(e.target.value)}
+                  className="w-full h-24 p-3 text-xs font-sans bg-surface border border-cobalt rounded-lg text-ink outline-hidden"
+                />
+              ) : (
+                <p className="text-sm font-serif font-bold text-ink leading-relaxed p-3 bg-surface rounded-lg border border-border">
+                  {currentItem.text || currentItem.reason_text}
+                </p>
+              )}
+            </div>
+
+            {/* Source Reference Linkage */}
+            {sourceContext && (
+              <div className="p-3 bg-ivory rounded-lg border border-border text-xs space-y-1">
+                <span className="text-2xs font-bold uppercase tracking-wider text-ink-tertiary">Direct Grounding Source</span>
+                <div className="font-mono text-2xs text-ink">{sourceContext.filename || 'Exhibit Grounding'}</div>
+                <div className="text-ink-secondary text-2xs italic">"{sourceContext.raw_line || sourceContext.text || 'Grounding record verified.'}"</div>
+              </div>
+            )}
+
+            {/* Action Buttons */}
+            <div className="flex items-center justify-between pt-4 border-t border-border">
+              <button
+                type="button"
+                onClick={() => {
+                  setIsEditing(!isEditing);
+                  setEditedText(currentItem.text || currentItem.reason_text);
+                }}
+                className="flex items-center gap-1.5 px-3 py-1.5 text-xs text-ink-secondary hover:text-ink border border-border rounded-lg bg-surface cursor-pointer"
+              >
+                <Edit2 className="w-3.5 h-3.5" />
+                <span>{isEditing ? 'Cancel Edit' : 'Edit Text'}</span>
+              </button>
+
+              <div className="flex items-center gap-3">
+                <button
+                  type="button"
+                  onClick={handleReject}
+                  className="flex items-center gap-1.5 px-4 py-2 bg-tomato hover:bg-tomato-dark text-white text-xs font-semibold rounded-lg cursor-pointer transition-colors"
+                >
+                  <X className="w-4 h-4" />
+                  <span>Reject Finding</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={handleApprove}
+                  className="flex items-center gap-1.5 px-4 py-2 bg-lime-dark hover:bg-lime-900 text-white text-xs font-semibold rounded-lg cursor-pointer transition-colors shadow-xs"
+                >
+                  <Check className="w-4 h-4" />
+                  <span>Approve for Court</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
