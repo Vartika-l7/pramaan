@@ -10,6 +10,7 @@ import httpx
 
 from backend.app.config import OLLAMA_HOST, PRIMARY_MODEL
 from backend.app.ai.provider import OllamaProvider
+from backend.app.ai.run_records import record_ai_run, build_explain_payload
 from backend.app.verify.claim_verifier import verify_claims
 from backend.app.assistant import tools as T
 
@@ -182,7 +183,10 @@ def ask_assistant(
 
     ollama = OllamaProvider()
     model_available = ollama.is_available()
+    model_name = f"ollama:{PRIMARY_MODEL}" if model_available else "DeterministicAssistant"
+    model_version = "local-ollama" if model_available else "deterministic-v1"
     mode_label = f"ollama:{PRIMARY_MODEL}" if model_available else "model unavailable, deterministic mode"
+    parameters = {"temperature": 0, "seed": 42}
 
     plan = _deterministic_plan(resolved_q, sess["current_focus"])
     tool_trace: List[Dict[str, Any]] = []
@@ -197,11 +201,33 @@ def ask_assistant(
         tool_outputs.append((tname, targs, res))
 
     raw_claims = _records_to_claims(tool_outputs)
+    input_record_ids = sorted({str(r) for c in raw_claims for r in c.get("refs", []) if r})
 
     # No-evidence rule
     if not raw_claims:
         answer_text = "I found nothing in the evidence about that."
         suggestions = T.get_starter_chips(conn)[:3]
+        run_rec = record_ai_run(
+            conn,
+            task="assistant_ask",
+            model_name=model_name,
+            model_version=model_version,
+            parameters=parameters,
+            prompt=resolved_q,
+            input_record_ids=[],
+            raw_output=answer_text,
+            verifier_result={"status": "NO_EVIDENCE", "verified_count": 0, "removed_count": 0},
+        )
+        explain_obj = build_explain_payload(
+            conn,
+            record_ids=[],
+            ai_run_id=run_rec["id"],
+            fallback_model=model_name,
+            fallback_raw=answer_text,
+            kept_items=[],
+            removed_items=[],
+            verifier_notes="No-Evidence Rule triggered (zero matching records).",
+        )
         sess["history"].append({"q": question, "a": answer_text})
         sess["history"] = sess["history"][-6:]
         return {
@@ -211,6 +237,9 @@ def ask_assistant(
             "mode": mode_label,
             "language": language,
             "current_focus": sess["current_focus"],
+            "ai_run_id": run_rec["id"],
+            "record_sha256": run_rec["record_sha256"],
+            "explain": explain_obj,
             "how_i_got_this": {
                 "question": question,
                 "resolved_question": resolved_q,
@@ -218,6 +247,8 @@ def ask_assistant(
                 "total_records": total_records,
                 "verifier_removed": [],
                 "model": mode_label,
+                "ai_run_id": run_rec["id"],
+                "record_sha256": run_rec["record_sha256"],
             },
         }
 
@@ -233,6 +264,33 @@ def ask_assistant(
         if language == "hi":
             answer_text = "[model-translated, verify against the quoted source]\n" + answer_text
 
+    run_rec = record_ai_run(
+        conn,
+        task="assistant_ask",
+        model_name=model_name,
+        model_version=model_version,
+        parameters=parameters,
+        prompt=resolved_q,
+        input_record_ids=input_record_ids,
+        raw_output=json.dumps(raw_claims, ensure_ascii=False),
+        verifier_result={
+            "verified_count": len(verified),
+            "removed_count": len(removed),
+            "verified_claims": verified,
+            "removed_claims": removed,
+        },
+    )
+    explain_obj = build_explain_payload(
+        conn,
+        record_ids=input_record_ids,
+        ai_run_id=run_rec["id"],
+        fallback_model=model_name,
+        fallback_raw=json.dumps(raw_claims, ensure_ascii=False),
+        kept_items=verified,
+        removed_items=removed,
+        verifier_notes=f"Kept {len(verified)}, removed {len(removed)} via deterministic rules V1-V5.",
+    )
+
     sess["history"].append({"q": question, "a": answer_text})
     sess["history"] = sess["history"][-6:]
 
@@ -242,6 +300,9 @@ def ask_assistant(
         "mode": mode_label,
         "language": language,
         "current_focus": sess["current_focus"],
+        "ai_run_id": run_rec["id"],
+        "record_sha256": run_rec["record_sha256"],
+        "explain": explain_obj,
         "how_i_got_this": {
             "question": question,
             "resolved_question": resolved_q,
@@ -250,5 +311,7 @@ def ask_assistant(
             "verifier_removed": removed,
             "removed_count": len(removed),
             "model": mode_label,
+            "ai_run_id": run_rec["id"],
+            "record_sha256": run_rec["record_sha256"],
         },
     }

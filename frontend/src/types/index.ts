@@ -130,5 +130,11 @@ export interface SystemCapabilities {
   tesseract: { available: boolean; languages: string[]; error?: string };
   pdf_engine: { engine: string; available: boolean; notes: string };
   indic_ner: { enabled: boolean; notes: string };
+  network_use?: {
+    outbound_connections: number;
+    blocked_attempts: Array<{ host: string; port?: number; ts_utc: string }>;
+    guard_active: boolean;
+    offline_mode: boolean;
+  };
 }
 

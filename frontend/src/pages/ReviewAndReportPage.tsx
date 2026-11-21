@@ -29,6 +29,7 @@ import { TierBadge } from '../components/ui/TierBadge';
 import { HashChip } from '../components/ui/HashChip';
 import { ExhibitChip } from '../components/evidence/ExhibitChip';
 import { SkeletonBlock, EmptyState } from '../components/ui/Skeleton';
+import { ExplainPanel } from '../components/ui/ExplainPanel';
 
 type Step = 'queue' | 'package' | 'verify';
 
@@ -287,6 +288,10 @@ export const ReviewAndReportPage: React.FC = () => {
                         ? currentItem.text
                         : `${currentItem.src} → ${currentItem.dst} (${currentItem.edge_type}): ${currentItem.reason_text}`}
                     </p>
+                  )}
+
+                  {currentItem.item_type === 'claim' && currentItem.explain && (
+                    <ExplainPanel explain={currentItem.explain} compact label="Explain AI Claim" />
                   )}
 
                   <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-border">
@@ -593,15 +598,65 @@ export const ReviewAndReportPage: React.FC = () => {
                 </p>
               </div>
               <div className="p-3 bg-amber-light border border-amber-border rounded space-y-1">
-                <div className="font-semibold text-amber">Probabilistic / Heuristic (Requires Human Review)</div>
+                <div className="font-semibold text-amber">Probabilistic / Measured on Synthetic Dataset</div>
                 <p className="text-ink">
-                  Cross-source correlation scores, IndicNER entity extraction, and Assistant natural-language planning.
+                  Cross-source correlation scores, IndicNER entity extraction, and Assistant natural-language planning. All figures below are measured on the <span className="font-mono font-semibold">synthetic dataset</span>.
                 </p>
               </div>
               {benchmarkData && (
-                <pre className="p-3 bg-paper border border-border rounded font-mono text-[11px] overflow-x-auto max-h-64">
-                  {JSON.stringify(benchmarkData, null, 2)}
-                </pre>
+                <div className="space-y-2.5">
+                  <div className="grid grid-cols-2 gap-2 text-[11px]">
+                    <div className="p-2.5 bg-paper border border-border rounded">
+                      <div className="text-muted">Extraction Precision / Recall</div>
+                      <div className="font-mono font-bold text-ink text-sm">
+                        {Math.round((benchmarkData.accuracy?.pramaan_precision ?? 0) * 100)}% /{' '}
+                        {Math.round((benchmarkData.accuracy?.pramaan_recall ?? 0) * 100)}%
+                      </div>
+                      <div className="text-[10px] text-muted">synthetic dataset</div>
+                    </div>
+                    <div className="p-2.5 bg-paper border border-border rounded">
+                      <div className="text-muted">Planted Fact Recall</div>
+                      <div className="font-mono font-bold text-ink text-sm">
+                        {benchmarkData.planted_facts?.detected_count ?? 0}/
+                        {benchmarkData.planted_facts?.total_count ?? 0}
+                      </div>
+                      <div className="text-[10px] text-muted">synthetic dataset</div>
+                    </div>
+                    <div className="p-2.5 bg-paper border border-border rounded">
+                      <div className="text-muted">Assistant Citation / Keyword</div>
+                      <div className="font-mono font-bold text-ink text-sm">
+                        {benchmarkData.assistant_eval
+                          ? `${Math.round(benchmarkData.assistant_eval.citation_precision * 100)}% / ${Math.round(
+                              benchmarkData.assistant_eval.keyword_recall * 100
+                            )}%`
+                          : 'Run eval_assistant.py'}
+                      </div>
+                      <div className="text-[10px] text-muted">synthetic dataset</div>
+                    </div>
+                    <div className="p-2.5 bg-paper border border-border rounded">
+                      <div className="text-muted">Verifier Removed / Verified</div>
+                      <div className="font-mono font-bold text-ink text-sm">
+                        {benchmarkData.claim_verifier?.removed ?? 0} removed ·{' '}
+                        {benchmarkData.claim_verifier?.verified ?? 0} kept
+                      </div>
+                      <div className="text-[10px] text-muted">synthetic dataset</div>
+                    </div>
+                  </div>
+                  {benchmarkData.backend_coverage && (
+                    <div className="p-2.5 bg-paper border border-border rounded flex items-center justify-between text-[11px]">
+                      <span className="text-muted">Backend Test Coverage (docs/coverage.txt)</span>
+                      <span className="font-mono font-bold text-teal">{benchmarkData.backend_coverage}</span>
+                    </div>
+                  )}
+                  <details className="border border-border rounded bg-paper">
+                    <summary className="px-3 py-1.5 cursor-pointer text-[11px] font-medium text-muted">
+                      Raw saved benchmark JSON (synthetic dataset)
+                    </summary>
+                    <pre className="p-3 border-t border-border font-mono text-[11px] overflow-x-auto max-h-56">
+                      {JSON.stringify(benchmarkData, null, 2)}
+                    </pre>
+                  </details>
+                </div>
               )}
             </div>
           </div>

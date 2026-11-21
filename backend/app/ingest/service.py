@@ -16,6 +16,7 @@ from backend.app.integrity.hasher import hash_file
 from backend.app.integrity.custody import append_custody_log, verify_chain
 from backend.app.integrity.merkle import compute_case_merkle_root
 from backend.app.integrity.signer import verify_signature
+from backend.app.correlate.base import deterministic_id
 
 
 def get_next_exhibit_id(conn: sqlite3.Connection) -> str:
@@ -68,7 +69,15 @@ def ingest_file(
 
         # 2. Store in evidence_store/<sha256> (content-addressable immutable store)
         stored_path = EVIDENCE_STORE_DIR / sha256_hash
-        if not stored_path.exists():
+        needs_copy = not stored_path.exists()
+        if not needs_copy:
+            try:
+                if hash_file(stored_path) != sha256_hash:
+                    os.chmod(stored_path, 0o644)
+                    needs_copy = True
+            except Exception:
+                needs_copy = True
+        if needs_copy:
             shutil.copy2(tmp_path, stored_path)
             # Make read-only
             try:
@@ -105,9 +114,9 @@ def ingest_file(
             conn.commit()
             return existing_dict
 
-        # 4. Assign next exhibit ID & insert into evidence table
+        # 4. Assign next exhibit ID & deterministic evidence ID & insert into evidence table
         exhibit_id = get_next_exhibit_id(conn)
-        evidence_id = str(uuid.uuid4())
+        evidence_id = deterministic_id("evi", sha256_hash, exhibit_id)
 
         cursor.execute(
             """

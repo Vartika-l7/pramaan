@@ -196,7 +196,23 @@ CREATE TABLE IF NOT EXISTS claims (
     source_refs_json TEXT NOT NULL,
     quotes_json TEXT NOT NULL,
     generated_by TEXT NOT NULL,
-    verifier_notes TEXT
+    verifier_notes TEXT,
+    ai_run_id TEXT
+);
+
+-- Tamper-evident AI run records (Phase 4 Part C)
+CREATE TABLE IF NOT EXISTS ai_runs (
+    id TEXT PRIMARY KEY,
+    ts_utc TEXT NOT NULL,
+    task TEXT NOT NULL,
+    model_name TEXT NOT NULL,
+    model_version TEXT NOT NULL,
+    parameters_json TEXT NOT NULL,
+    prompt TEXT NOT NULL,
+    input_record_ids_json TEXT NOT NULL,
+    raw_output TEXT NOT NULL,
+    verifier_result_json TEXT NOT NULL,
+    record_sha256 TEXT NOT NULL
 );
 
 -- Human review audit trail
@@ -254,5 +270,9 @@ def init_db(case_id: Optional[str] = None) -> sqlite3.Connection:
             cursor.execute("ALTER TABLE events ADD COLUMN clock_offset_seconds INTEGER DEFAULT 0;")
         if "offset_source" not in ev_cols:
             cursor.execute("ALTER TABLE events ADD COLUMN offset_source TEXT;")
+        cursor.execute("PRAGMA table_info(claims);")
+        claim_cols = [row[1] for row in cursor.fetchall()]
+        if "ai_run_id" not in claim_cols:
+            cursor.execute("ALTER TABLE claims ADD COLUMN ai_run_id TEXT;")
     return conn
 

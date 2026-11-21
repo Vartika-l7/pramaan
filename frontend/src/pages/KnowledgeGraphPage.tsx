@@ -24,6 +24,14 @@ try {
   // Already registered
 }
 
+const BASIS_LABELS: Record<string, string> = {
+  exact_identifier: 'Exact Identifier Match',
+  shared_device: 'Shared Device (Deterministic)',
+  time_window: 'Time-and-Place Co-occurrence',
+  spatial: 'Spatial Proximity / Trajectory',
+  inferred: 'Deterministic Similarity / Perceptual Hash Score',
+};
+
 const NODE_TYPES = [
   { value: 'ALL', label: 'All node types' },
   { value: 'PERSON', label: 'People' },
@@ -329,11 +337,13 @@ export const KnowledgeGraphPage: React.FC = () => {
                 <div className="font-mono text-ink font-semibold">
                   {edgeDetail.src} → {edgeDetail.dst}
                 </div>
-                <div className="p-2.5 bg-paper border border-border rounded space-y-1">
-                  <div className="text-[11px] text-muted uppercase font-semibold">Basis: {edgeDetail.basis}</div>
+                <div className="p-2.5 bg-paper border border-border rounded space-y-1.5">
+                  <div className="text-[11px] text-muted uppercase font-semibold">
+                    Basis: {BASIS_LABELS[edgeDetail.basis] || edgeDetail.basis}
+                  </div>
                   <p className="text-ink leading-relaxed">{edgeDetail.reason_text}</p>
-                  <div className="font-mono text-[11px] text-muted pt-1">
-                    Strength: {Math.round((edgeDetail.strength || 0) * 100)}%
+                  <div className="font-mono text-[11px] text-muted pt-1 border-t border-border">
+                    Deterministic strength: {Math.round((edgeDetail.strength || 0) * 100)}% (feature-derived, never model-stated)
                   </div>
                 </div>
                 <div className="space-y-1.5">

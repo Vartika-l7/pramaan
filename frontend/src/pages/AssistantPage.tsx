@@ -16,6 +16,7 @@ import { WorkspaceHeader } from '../components/ui/WorkspaceHeader';
 import { TierBadge } from '../components/ui/TierBadge';
 import { ExhibitChip } from '../components/evidence/ExhibitChip';
 import { EmptyState } from '../components/ui/Skeleton';
+import { ExplainPanel } from '../components/ui/ExplainPanel';
 
 export const AssistantPage: React.FC = () => {
   const [searchParams] = useSearchParams();
@@ -31,7 +32,6 @@ export const AssistantPage: React.FC = () => {
   const [selectedMsgIdx, setSelectedMsgIdx] = useState<number>(0);
   const [loading, setLoading] = useState(false);
   const [expandedTrace, setExpandedTrace] = useState<Record<number, boolean>>({});
-  const [expandedExplain, setExpandedExplain] = useState<Record<number, boolean>>({});
   const [promotedNotice, setPromotedNotice] = useState<string | null>(null);
 
   useEffect(() => {
@@ -87,12 +87,18 @@ export const AssistantPage: React.FC = () => {
             response: {
               answer: text || 'No items found.',
               claims: [],
+              leads: endpoint === 'leads' ? data.leads || [] : undefined,
+              objections: endpoint === 'challenge' ? data.objections || [] : undefined,
               mode: 'deterministic',
+              ai_run_id: data.ai_run_id,
+              record_sha256: data.record_sha256,
               how_i_got_this: {
                 question: label,
                 tool_calls: [{ tool: endpoint, args: {}, records_returned: 1 }],
                 verifier_removed: [],
                 model: 'deterministic',
+                ai_run_id: data.ai_run_id,
+                record_sha256: data.record_sha256,
               },
             },
           },
@@ -220,7 +226,37 @@ export const AssistantPage: React.FC = () => {
                       </span>
                     </div>
 
-                    <div className="text-sm text-ink whitespace-pre-line leading-relaxed">{r.answer}</div>
+                    {r.leads ? (
+                      <div className="space-y-2">
+                        {r.leads.map((l: any, lIdx: number) => (
+                          <div key={lIdx} className="p-2.5 bg-panel border border-border rounded space-y-2 text-xs">
+                            <div className="flex items-center justify-between gap-2">
+                              <span className="font-semibold text-ink">{l.title}</span>
+                              <TierBadge tier={l.tier || 'LEAD'} size="sm" />
+                            </div>
+                            <p className="text-muted">{l.reason}</p>
+                            <ExplainPanel explain={l.explain} compact label="Explain lead" />
+                          </div>
+                        ))}
+                      </div>
+                    ) : r.objections ? (
+                      <div className="space-y-2">
+                        {r.objections.map((o: any, oIdx: number) => (
+                          <div key={oIdx} className="p-2.5 bg-panel border border-border rounded space-y-2 text-xs">
+                            <div className="flex items-center justify-between gap-2">
+                              <span className="font-semibold text-ink">{o.title}</span>
+                              <span className="font-mono text-[10px] px-1.5 py-0.5 rounded bg-vermilion-light text-vermilion border border-vermilion/40">
+                                {o.severity}
+                              </span>
+                            </div>
+                            <p className="text-muted">{o.argument}</p>
+                            <ExplainPanel explain={o.explain} compact label="Explain objection" />
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="text-sm text-ink whitespace-pre-line leading-relaxed">{r.answer}</div>
+                    )}
 
                     {/* Action buttons */}
                     <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-border text-xs">
@@ -269,17 +305,6 @@ export const AssistantPage: React.FC = () => {
                         {expandedTrace[idx] ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
                         <span>How I got this</span>
                       </button>
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setExpandedExplain((p) => ({ ...p, [idx]: !p[idx] }));
-                        }}
-                        className="inline-flex items-center gap-1 text-muted hover:text-ink cursor-pointer"
-                      >
-                        {expandedExplain[idx] ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
-                        <span>Explain</span>
-                      </button>
                     </div>
 
                     {expandedTrace[idx] && r.how_i_got_this && (
@@ -288,13 +313,7 @@ export const AssistantPage: React.FC = () => {
                       </pre>
                     )}
 
-                    {expandedExplain[idx] && (
-                      <div className="p-3 bg-panel border border-border rounded text-xs text-muted space-y-1">
-                        <div>Model / Engine: <span className="font-mono text-ink">{r.mode}</span></div>
-                        <div>Verified claims returned: <span className="font-mono text-ink">{r.claims?.length || 0}</span></div>
-                        <div>Unverified claims removed by verifier: <span className="font-mono text-ink">{r.how_i_got_this?.verifier_removed?.length || 0}</span></div>
-                      </div>
-                    )}
+                    {r.explain && <ExplainPanel explain={r.explain} compact label="Explain answer" />}
                   </div>
                 );
               })

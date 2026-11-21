@@ -9,6 +9,7 @@ from datetime import datetime, timezone
 from typing import Optional, List, Dict, Any
 from fastapi import APIRouter, HTTPException, Query, Body
 from backend.app.db import get_db_connection
+from backend.app.ai.run_records import build_explain_payload
 
 router = APIRouter(prefix="/api/review", tags=["review"])
 
@@ -29,6 +30,16 @@ def get_review_queue(case_id: Optional[str] = Query(None)):
             d["refs"] = json.loads(d.pop("source_refs_json", "[]"))
             d["quotes"] = json.loads(d.pop("quotes_json", "[]"))
             d["item_type"] = "claim"
+            d["explain"] = build_explain_payload(
+                conn,
+                record_ids=d["refs"],
+                ai_run_id=d.get("ai_run_id"),
+                fallback_model=d.get("generated_by", "AI_DRAFT"),
+                fallback_raw=d.get("text", ""),
+                verifier_notes=d.get("verifier_notes"),
+                item_type="claim",
+                item_id=d["id"],
+            )
             claims.append(d)
 
         # 2. Top Lead Edges awaiting approval

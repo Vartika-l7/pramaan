@@ -11,6 +11,7 @@ import dateutil.parser
 import numpy as np
 
 from backend.app.config import CHAT_GAP_MINUTES_MIN
+from backend.app.correlate.base import deterministic_id
 
 
 def detect_timeline_anomalies(conn: sqlite3.Connection) -> List[Dict[str, Any]]:
@@ -60,7 +61,7 @@ def detect_timeline_anomalies(conn: sqlite3.Connection) -> List[Dict[str, Any]]:
                 prev_row = msg_rows[valid_indices[i - 1]]
                 curr_row = msg_rows[valid_indices[i]]
 
-                anom_id = str(uuid.uuid4())
+                anom_id = deterministic_id("anom_ooo", ev_id, prev_row["id"], curr_row["id"])
                 desc = (
                     f"Out-of-order timestamp indicator: Message at {curr_row['ts_original']} "
                     f"appears after message at {prev_row['ts_original']} (inversion of {int(delta_sec)}s)."
@@ -101,7 +102,7 @@ def detect_timeline_anomalies(conn: sqlite3.Connection) -> List[Dict[str, Any]]:
 
                     hours = int(gap_min // 60)
                     mins = int(gap_min % 60)
-                    anom_id = str(uuid.uuid4())
+                    anom_id = deterministic_id("anom_gap", ev_id, row_before["id"], row_after["id"])
                     desc = (
                         f"Chat silence gap indicator: {hours}h {mins}m unexplained gap "
                         f"between {row_before['ts_original']} and {row_after['ts_original']} (threshold: {int(threshold_min)}m)."
@@ -153,7 +154,7 @@ def detect_spatial_movement(conn: sqlite3.Connection) -> List[Dict[str, Any]]:
         city2 = loc2.split()[0] if loc2 else ""
 
         if city1 and city2 and city1.lower() != city2.lower():
-            anom_id = str(uuid.uuid4())
+            anom_id = deterministic_id("anom_spatial", r1["id"], r2["id"])
             desc = f"Spatial location transition indicator: Handset moved from {loc1} to {loc2} between calls."
             detail = {
                 "type": "SPATIAL_THREAD",

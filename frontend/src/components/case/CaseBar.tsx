@@ -188,6 +188,12 @@ export const CaseBar: React.FC = () => {
                   <span className="text-muted">PDF Engine:</span>
                   <span className="font-mono text-ink">{caps?.pdf_engine.engine || 'pdfplumber'}</span>
                 </div>
+                <div className="flex items-center justify-between pt-1 border-t border-border">
+                  <span className="text-muted">Network use:</span>
+                  <span className="font-mono font-semibold text-teal">
+                    {caps?.network_use?.outbound_connections ?? 0} outbound connections
+                  </span>
+                </div>
               </div>
             </div>
           )}

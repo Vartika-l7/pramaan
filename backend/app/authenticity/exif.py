@@ -12,6 +12,7 @@ import dateutil.parser
 
 from backend.app.config import CASE_DATA_DIR, ELA_HOTSPOT_THRESHOLD
 from backend.app.authenticity.ela import compute_ela_heatmap, ELA_DIR
+from backend.app.correlate.base import deterministic_id
 
 KNOWN_EDITORS = ["pixelmod", "photoshop", "gimp", "canva", "snapseed", "lightroom", "picsart"]
 
@@ -78,7 +79,7 @@ def inspect_image_authenticity(conn: sqlite3.Connection) -> List[Dict[str, Any]]
         is_suspicious = (editor_detected is not None) or mod_later or (hotspot_ratio > ELA_HOTSPOT_THRESHOLD)
 
         if is_suspicious:
-            anom_id = str(uuid.uuid4())
+            anom_id = deterministic_id("anom_img", evidence_id, event_id)
             reasons = []
             if editor_detected:
                 reasons.append(f"Image editor signature '{editor_detected}' detected in EXIF Software tag")

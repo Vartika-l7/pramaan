@@ -9,6 +9,7 @@ from fastapi import APIRouter, Body, Query
 from fastapi.responses import StreamingResponse
 
 from backend.app.db import get_db_connection
+from backend.app.ai.run_records import record_ai_run, build_explain_payload
 from backend.app.assistant.engine import ask_assistant
 from backend.app.assistant.tools import (
     get_starter_chips,
@@ -68,7 +69,34 @@ def assistant_starters(case_id: Optional[str] = Query(None)):
 def assistant_leads(case_id: Optional[str] = Query(None)):
     conn = get_db_connection(case_id)
     try:
-        return {"leads": suggest_next_leads(conn)}
+        leads = suggest_next_leads(conn)
+        all_refs = [ref for l in leads for ref in l.get("evidence_refs", [])]
+        run_rec = record_ai_run(
+            conn,
+            task="suggest_next_leads",
+            model_name="DeterministicLeadSuggester",
+            model_version="deterministic-v1",
+            parameters={"temperature": 0, "seed": 42},
+            prompt="Suggest next investigative leads from unresolved anomalies.",
+            input_record_ids=all_refs,
+            raw_output=json.dumps(leads, ensure_ascii=False),
+            verifier_result={"leads_count": len(leads), "status": "LEAD_ONLY"},
+        )
+        for idx, l in enumerate(leads):
+            l["id"] = l.get("id") or f"LEAD-{idx + 1:03d}"
+            l["explain"] = build_explain_payload(
+                conn,
+                record_ids=l.get("evidence_refs", []),
+                ai_run_id=run_rec["id"],
+                fallback_model="DeterministicLeadSuggester",
+                fallback_raw=l.get("reason", ""),
+                kept_items=[{"id": l["id"], "text": l["title"]}],
+                removed_items=[],
+                verifier_notes="Investigative LEAD only; requires corroboration and human approval.",
+                item_type="lead",
+                item_id=l["id"],
+            )
+        return {"leads": leads, "ai_run_id": run_rec["id"], "record_sha256": run_rec["record_sha256"]}
     finally:
         conn.close()
 

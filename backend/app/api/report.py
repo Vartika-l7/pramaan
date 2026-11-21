@@ -108,11 +108,11 @@ def preview_court_report(case_id: Optional[str] = Query(None)):
             approved_edges.append(d)
 
         cursor.execute(
-            "SELECT id, title, start_ts_utc, end_ts_utc, summary FROM episodes ORDER BY start_ts_utc ASC;"
+            "SELECT id, title, start_ts_utc, end_ts_utc FROM episodes ORDER BY start_ts_utc ASC;"
         )
         episodes = [dict(r) for r in cursor.fetchall()]
 
-        merkle_root = compute_case_merkle_root(conn)
+        merkle_root, _ = compute_case_merkle_root(conn)
         return {
             "case_id": cid,
             "exhibits": exhibits,

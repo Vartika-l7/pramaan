@@ -20,6 +20,7 @@ from backend.app.parsers.email_parser import EmailParser
 from backend.app.parsers.network_log import NetworkLogParser
 from backend.app.parsers.cctv import CCTVCameraIndexParser, CCTVVideoParser
 from backend.app.integrity.custody import append_custody_log
+from backend.app.correlate.base import deterministic_id
 
 
 class ParserRegistry:
@@ -110,8 +111,8 @@ def parse_and_store_evidence(
 
     # Insert events into unified events table
     clock_offsets_seen: List[Dict[str, object]] = []
-    for ev in parsed_events:
-        event_id = str(uuid.uuid4())
+    for idx, ev in enumerate(parsed_events):
+        event_id = deterministic_id("evt", ev.evidence_id, idx, ev.ts_utc, ev.kind)
         cursor.execute(
             """
             INSERT INTO events (id, evidence_id, source_type, ts_utc, ts_original, tz_assumed, actor, counterparty, kind, text, amount, currency, location_id, clock_offset_seconds, offset_source, ref_json)
@@ -151,7 +152,7 @@ def parse_and_store_evidence(
                 VALUES (?, 'ANOMALY_EMAIL_DATE_INCONSISTENCY', 'HIGH', ?, ?, ?, ?, 'LEAD');
                 """,
                 (
-                    str(uuid.uuid4()),
+                    deterministic_id("anom_email_date", evidence_id, event_id),
                     evidence_id,
                     json.dumps([event_id]),
                     f"Email Date header differs from Received chain by {inc['drift_minutes']} minutes.",

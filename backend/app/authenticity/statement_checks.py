@@ -6,6 +6,7 @@ import json
 import sqlite3
 import uuid
 from typing import Dict, List, Any, Optional
+from backend.app.correlate.base import deterministic_id
 
 
 def verify_statement_arithmetic(conn: sqlite3.Connection) -> List[Dict[str, Any]]:
@@ -83,7 +84,7 @@ def verify_statement_arithmetic(conn: sqlite3.Connection) -> List[Dict[str, Any]
             running_balance = stated_bal
 
         if failing_row:
-            anom_id = str(uuid.uuid4())
+            anom_id = deterministic_id("anom_bal", ev_id, failing_row["event_id"])
             desc = (
                 f"Bank statement arithmetic discrepancy indicator: Row {failing_row['row_index']} "
                 f"stated balance of INR {failing_row['stated_balance']:,.2f} differs from expected "

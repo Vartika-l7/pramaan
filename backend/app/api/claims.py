@@ -3,10 +3,12 @@
 from __future__ import annotations
 
 import json
-from typing import Optional, List, Dict, Any
-from fastapi import APIRouter, Query, Body, HTTPException
+from typing import Optional
+from fastapi import APIRouter, Query
 from backend.app.db import get_db_connection
 from backend.app.ai.provider import get_ai_provider
+from backend.app.ai.run_records import record_ai_run, build_explain_payload
+from backend.app.correlate.base import deterministic_id
 from backend.app.verify.claim_verifier import verify_claims
 from backend.app.verify.challenger import run_challenger_analysis
 
@@ -19,13 +21,13 @@ def draft_claims_endpoint(case_id: Optional[str] = Query(None)):
     conn = get_db_connection(case_id)
     try:
         cursor = conn.cursor()
-        cursor.execute("SELECT id, ts_utc, kind, text, amount, actor, counterparty FROM events LIMIT 200;")
+        cursor.execute("SELECT id, ts_utc, kind, text, amount, actor, counterparty FROM events ORDER BY ts_utc ASC, id ASC LIMIT 200;")
         events = [dict(r) for r in cursor.fetchall()]
 
-        cursor.execute("SELECT id, kind, severity, description FROM anomalies;")
+        cursor.execute("SELECT id, kind, severity, description FROM anomalies ORDER BY id ASC;")
         anomalies = [dict(r) for r in cursor.fetchall()]
 
-        cursor.execute("SELECT id, src, dst, edge_type, reason_text FROM edges;")
+        cursor.execute("SELECT id, src, dst, edge_type, reason_text FROM edges ORDER BY id ASC;")
         edges = [dict(r) for r in cursor.fetchall()]
 
         context_records = {
@@ -37,22 +39,42 @@ def draft_claims_endpoint(case_id: Optional[str] = Query(None)):
         provider = get_ai_provider()
         drafted = provider.draft_claims(context_records)
 
-        # Store as PROPOSED claims
-        import uuid
+        input_record_ids = (
+            [e["id"] for e in events]
+            + [a["id"] for a in anomalies]
+            + [e["id"] for e in edges]
+        )
+        run_rec = record_ai_run(
+            conn,
+            task="claim_drafting",
+            model_name=getattr(provider, "model_name", provider.__class__.__name__),
+            model_version=getattr(provider, "model_version", "1.0"),
+            parameters=getattr(provider, "parameters", {"temperature": 0, "seed": 42}),
+            prompt=getattr(provider, "last_prompt", ""),
+            input_record_ids=input_record_ids,
+            raw_output=getattr(provider, "last_raw_output", json.dumps(drafted, ensure_ascii=True)),
+            verifier_result={"status": "PENDING_VERIFICATION", "proposed_count": len(drafted)},
+        )
+
+        # Store as PROPOSED claims linked to ai_run_id
         for c in drafted:
-            cid = c.get("id") or str(uuid.uuid4())
+            refs = c.get("refs", [])
+            cid = c.get("id") or deterministic_id("claim", c["text"], c.get("kind", "finding"), *[str(r) for r in refs])
+            c["id"] = cid
+            c["ai_run_id"] = run_rec["id"]
             cursor.execute(
                 """
-                INSERT OR REPLACE INTO claims (id, text, kind, tier, status, source_refs_json, quotes_json, generated_by, verifier_notes)
-                VALUES (?, ?, ?, 'LEAD', 'PROPOSED', ?, ?, ?, 'Pending deterministic verification');
+                INSERT OR REPLACE INTO claims (id, text, kind, tier, status, source_refs_json, quotes_json, generated_by, verifier_notes, ai_run_id)
+                VALUES (?, ?, ?, 'LEAD', 'PROPOSED', ?, ?, ?, 'Pending deterministic verification', ?);
                 """,
                 (
                     cid,
                     c["text"],
                     c.get("kind", "finding"),
-                    json.dumps(c.get("refs", [])),
+                    json.dumps(refs),
                     json.dumps(c.get("quotes", [])),
                     provider.__class__.__name__,
+                    run_rec["id"],
                 ),
             )
         conn.commit()
@@ -60,6 +82,8 @@ def draft_claims_endpoint(case_id: Optional[str] = Query(None)):
         return {
             "status": "DRAFTED",
             "provider": provider.__class__.__name__,
+            "ai_run_id": run_rec["id"],
+            "record_sha256": run_rec["record_sha256"],
             "claims_count": len(drafted),
             "claims": drafted,
         }
@@ -85,6 +109,7 @@ def verify_claims_endpoint(case_id: Optional[str] = Query(None)):
                 "refs": json.loads(r["source_refs_json"]),
                 "quotes": json.loads(r["quotes_json"]),
                 "generated_by": r["generated_by"],
+                "ai_run_id": r["ai_run_id"],
             })
 
         report = verify_claims(conn, claims_to_verify)
@@ -95,7 +120,7 @@ def verify_claims_endpoint(case_id: Optional[str] = Query(None)):
 
 @router.get("/claims")
 def list_claims(case_id: Optional[str] = Query(None), status: Optional[str] = Query(None)):
-    """List forensic claims filtered by status (PROPOSED, VERIFIED, APPROVED, REMOVED)."""
+    """List forensic claims filtered by status (PROPOSED, VERIFIED, APPROVED, REMOVED) with Explain payloads."""
     conn = get_db_connection(case_id)
     try:
         cursor = conn.cursor()
@@ -111,8 +136,20 @@ def list_claims(case_id: Optional[str] = Query(None), status: Optional[str] = Qu
         results = []
         for r in rows:
             d = dict(r)
-            d["source_refs"] = json.loads(d.pop("source_refs_json", "[]"))
-            d["quotes"] = json.loads(d.pop("quotes_json", "[]"))
+            refs = json.loads(d.pop("source_refs_json", "[]"))
+            quotes = json.loads(d.pop("quotes_json", "[]"))
+            d["source_refs"] = refs
+            d["quotes"] = quotes
+            d["explain"] = build_explain_payload(
+                conn,
+                record_ids=refs,
+                ai_run_id=d.get("ai_run_id"),
+                fallback_model=d.get("generated_by", "AI_DRAFT"),
+                fallback_raw=d.get("text", ""),
+                verifier_notes=d.get("verifier_notes"),
+                item_type="claim",
+                item_id=d["id"],
+            )
             results.append(d)
         return results
     finally:
@@ -127,4 +164,3 @@ def run_cross_examination_challenge(case_id: Optional[str] = Query(None)):
         return run_challenger_analysis(conn)
     finally:
         conn.close()
-

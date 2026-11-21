@@ -198,7 +198,16 @@ class CCTVVideoParser(BaseParser):
             except Exception as exc:
                 container_meta["ffprobe_error"] = str(exc)
 
-        ts_utc = datetime.now(timezone.utc).isoformat()
+        creation_time = (
+            container_meta.get("ffprobe", {}).get("format", {}).get("tags", {}).get("creation_time")
+            if isinstance(container_meta.get("ffprobe"), dict)
+            else None
+        )
+        if creation_time:
+            ts_utc, ts_original = normalise_to_utc(str(creation_time), default_tz=default_tz)
+        else:
+            ts_original = "CONTAINER_TIMESTAMP_ABSENT"
+            ts_utc = "1970-01-01T00:00:00+00:00"
         ev = ParsedEvent(
             evidence_id=evidence_id,
             source_type=self.source_type,

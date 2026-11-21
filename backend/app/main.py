@@ -1,10 +1,12 @@
 """PRAMAAN FastAPI Application Entrypoint."""
 
 from contextlib import asynccontextmanager
+import os
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from backend.app.db import init_db
+from backend.app.network_guard import install_network_guard
 from backend.app.api.integrity import router as integrity_router
 from backend.app.api.evidence import router as evidence_router
 from backend.app.api.events import router as events_router
@@ -25,6 +27,9 @@ from backend.app.api.assistant import router as assistant_router
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    # Enforce offline network guard when OFFLINE=1
+    if os.getenv("OFFLINE", "0") == "1":
+        install_network_guard()
     # Initialize SQLite database and triggers
     init_db()
     yield

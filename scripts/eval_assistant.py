@@ -92,4 +92,7 @@ def run_eval() -> Dict[str, Any]:
 
 
 if __name__ == "__main__":
-    print(json.dumps(run_eval(), indent=2))
+    results = run_eval()
+    out_path = DATA_DIR / "assistant_eval_results.json"
+    out_path.write_text(json.dumps(results, indent=2) + "\n", encoding="utf-8")
+    print(json.dumps(results, indent=2))

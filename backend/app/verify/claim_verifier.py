@@ -12,6 +12,9 @@ import sqlite3
 import uuid
 from typing import Dict, List, Any, Tuple
 
+from backend.app.correlate.base import deterministic_id
+from backend.app.ai.run_records import update_ai_run_verifier_result
+
 CERTAINTY_WORDS_MAP = {
     r"\bguilty\b": "alleged to be involved",
     r"\bintended to defraud\b": "exhibiting indicators consistent with misrepresentation",
@@ -39,12 +42,13 @@ def verify_claims(conn: sqlite3.Connection, claims: List[Dict[str, Any]]) -> Dic
     modified_claims = []
 
     for raw_claim in claims:
-        claim_id = raw_claim.get("id") or str(uuid.uuid4())
         text = raw_claim.get("text", "")
         kind = raw_claim.get("kind", "finding")
         refs = raw_claim.get("refs", [])
         quotes = raw_claim.get("quotes", [])
         generated_by = raw_claim.get("generated_by", "AI_DRAFT")
+        ai_run_id = raw_claim.get("ai_run_id")
+        claim_id = raw_claim.get("id") or deterministic_id("claim", text, kind, *[str(r) for r in refs])
 
         # ---------------------------------------------------------------------
         # Rule V4: A claim with no refs is removed immediately
@@ -57,10 +61,10 @@ def verify_claims(conn: sqlite3.Connection, claims: List[Dict[str, Any]]) -> Dic
             })
             cursor.execute(
                 """
-                INSERT OR REPLACE INTO claims (id, text, kind, tier, status, source_refs_json, quotes_json, generated_by, verifier_notes)
-                VALUES (?, ?, ?, 'LEAD', 'REMOVED', '[]', '[]', ?, 'Rule V4: Removed - No source references');
+                INSERT OR REPLACE INTO claims (id, text, kind, tier, status, source_refs_json, quotes_json, generated_by, verifier_notes, ai_run_id)
+                VALUES (?, ?, ?, 'LEAD', 'REMOVED', '[]', '[]', ?, 'Rule V4: Removed - No source references', ?);
                 """,
-                (claim_id, text, kind, generated_by),
+                (claim_id, text, kind, generated_by, ai_run_id),
             )
             continue
 
@@ -76,10 +80,10 @@ def verify_claims(conn: sqlite3.Connection, claims: List[Dict[str, Any]]) -> Dic
             })
             cursor.execute(
                 """
-                INSERT OR REPLACE INTO claims (id, text, kind, tier, status, source_refs_json, quotes_json, generated_by, verifier_notes)
-                VALUES (?, ?, ?, 'LEAD', 'REMOVED', ?, ?, ?, 'Rule V1: Removed - Invalid reference IDs');
+                INSERT OR REPLACE INTO claims (id, text, kind, tier, status, source_refs_json, quotes_json, generated_by, verifier_notes, ai_run_id)
+                VALUES (?, ?, ?, 'LEAD', 'REMOVED', ?, ?, ?, 'Rule V1: Removed - Invalid reference IDs', ?);
                 """,
-                (claim_id, text, kind, json.dumps(refs), json.dumps(quotes), generated_by),
+                (claim_id, text, kind, json.dumps(refs), json.dumps(quotes), generated_by, ai_run_id),
             )
             continue
 
@@ -110,10 +114,10 @@ def verify_claims(conn: sqlite3.Connection, claims: List[Dict[str, Any]]) -> Dic
             })
             cursor.execute(
                 """
-                INSERT OR REPLACE INTO claims (id, text, kind, tier, status, source_refs_json, quotes_json, generated_by, verifier_notes)
-                VALUES (?, ?, ?, 'LEAD', 'REMOVED', ?, ?, ?, ?);
+                INSERT OR REPLACE INTO claims (id, text, kind, tier, status, source_refs_json, quotes_json, generated_by, verifier_notes, ai_run_id)
+                VALUES (?, ?, ?, 'LEAD', 'REMOVED', ?, ?, ?, ?, ?);
                 """,
-                (claim_id, text, kind, json.dumps(refs), json.dumps(quotes), generated_by, f"Rule V2: {quote_fail_reason}"),
+                (claim_id, text, kind, json.dumps(refs), json.dumps(quotes), generated_by, f"Rule V2: {quote_fail_reason}", ai_run_id),
             )
             continue
 
@@ -139,10 +143,10 @@ def verify_claims(conn: sqlite3.Connection, claims: List[Dict[str, Any]]) -> Dic
 
         cursor.execute(
             """
-            INSERT OR REPLACE INTO claims (id, text, kind, tier, status, source_refs_json, quotes_json, generated_by, verifier_notes)
-            VALUES (?, ?, ?, 'LEAD', ?, ?, ?, ?, ?);
+            INSERT OR REPLACE INTO claims (id, text, kind, tier, status, source_refs_json, quotes_json, generated_by, verifier_notes, ai_run_id)
+            VALUES (?, ?, ?, 'LEAD', ?, ?, ?, ?, ?, ?);
             """,
-            (claim_id, sanitized_text, kind, status, json.dumps(refs), json.dumps(quotes), generated_by, verifier_notes),
+            (claim_id, sanitized_text, kind, status, json.dumps(refs), json.dumps(quotes), generated_by, verifier_notes, ai_run_id),
         )
 
         verified_claims.append({
@@ -158,7 +162,7 @@ def verify_claims(conn: sqlite3.Connection, claims: List[Dict[str, Any]]) -> Dic
 
     conn.commit()
 
-    return {
+    report = {
         "proposed_count": len(claims),
         "verified_count": len(verified_claims),
         "removed_count": len(removed_claims),
@@ -167,4 +171,10 @@ def verify_claims(conn: sqlite3.Connection, claims: List[Dict[str, Any]]) -> Dic
         "removed_claims": removed_claims,
         "modified_claims": modified_claims,
     }
+
+    run_ids = {c.get("ai_run_id") for c in claims if c.get("ai_run_id")}
+    for rid in sorted(run_ids):
+        update_ai_run_verifier_result(conn, rid, report)
+
+    return report
 

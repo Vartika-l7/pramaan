@@ -18,7 +18,7 @@ from backend.app.correlate.base import deterministic_id
 def run_entity_extraction(conn: sqlite3.Connection) -> Dict[str, int]:
     """Extract entities and mentions across all recorded events."""
     cursor = conn.cursor()
-    cursor.execute("SELECT id, text, actor, counterparty, source_type FROM events;")
+    cursor.execute("SELECT id, text, actor, counterparty, source_type FROM events ORDER BY ts_utc ASC, id ASC;")
     events = cursor.fetchall()
 
     entity_cache: Dict[Tuple[str, str], str] = {}  # (type, value_norm) -> entity_id
@@ -79,10 +79,10 @@ def run_entity_extraction(conn: sqlite3.Connection) -> Dict[str, int]:
                 ent_id = entity_cache[key]
 
             # Insert mention
-            mention_id = str(uuid.uuid4())
+            mention_id = deterministic_id("men", ent_id, event_id, m.char_start, m.char_end, m.extractor)
             cursor.execute(
                 """
-                INSERT INTO mentions (id, entity_id, event_id, char_start, char_end, extractor, tier)
+                INSERT OR IGNORE INTO mentions (id, entity_id, event_id, char_start, char_end, extractor, tier)
                 VALUES (?, ?, ?, ?, ?, ?, 'VERIFIED BY CODE');
                 """,
                 (mention_id, ent_id, event_id, m.char_start, m.char_end, m.extractor),
@@ -104,7 +104,7 @@ def run_entity_extraction(conn: sqlite3.Connection) -> Dict[str, int]:
 def run_fuzzy_resolution(conn: sqlite3.Connection, threshold: float = 75.0) -> int:
     """Identify fuzzy name variants and emit LEAD edges without auto-merging."""
     cursor = conn.cursor()
-    cursor.execute("SELECT id, display, value_norm FROM entities WHERE type = 'PERSON';")
+    cursor.execute("SELECT id, display, value_norm FROM entities WHERE type = 'PERSON' ORDER BY id ASC;")
     persons = cursor.fetchall()
 
     created_edges = 0

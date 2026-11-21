@@ -1,0 +1,10 @@
+{
+  "dataset": "synthetic dataset (case_alpha)",
+  "total_questions": 30,
+  "answerable_questions": 22,
+  "citation_precision": 0.591,
+  "keyword_recall": 0.227,
+  "unanswerable_questions": 8,
+  "unanswerable_refusal_rate": 0.625,
+  "verifier_removed_share": 0.0
+}

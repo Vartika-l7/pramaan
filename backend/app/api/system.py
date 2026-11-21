@@ -3,10 +3,16 @@
 from __future__ import annotations
 
 import json
+import os
 from typing import Optional
 from fastapi import APIRouter, Query
 from backend.app.config import OLLAMA_HOST, PRIMARY_MODEL, CHALLENGER_MODEL, USE_INDIC_NER
 from backend.app.db import get_db_connection
+from backend.app.network_guard import (
+    get_outbound_count,
+    get_blocked_attempts,
+    is_guard_active,
+)
 
 router = APIRouter(prefix="/api", tags=["system"])
 
@@ -65,6 +71,12 @@ def get_system_capabilities():
         "indic_ner": {
             "enabled": USE_INDIC_NER,
             "notes": "Rule-based Indic gazetteer active (transformers optional).",
+        },
+        "network_use": {
+            "outbound_connections": get_outbound_count(),
+            "blocked_attempts": get_blocked_attempts(),
+            "guard_active": is_guard_active(),
+            "offline_mode": os.getenv("OFFLINE", "0") == "1",
         },
     }
 

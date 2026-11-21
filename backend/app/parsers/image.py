@@ -10,6 +10,7 @@ import imagehash
 from PIL import Image
 
 from backend.app.parsers.base import BaseParser, ParsedEvent, ParseReport, SkippedUnit, ParseErrorUnit
+from backend.app.parsers.time_utils import normalise_to_utc
 
 
 class ImageParser(BaseParser):
@@ -66,8 +67,14 @@ class ImageParser(BaseParser):
         except Exception:
             ocr_text = "[OCR unavailable: tesseract not found or language pack missing]"
 
-        ts_original = exif_data.get("EXIF DateTimeOriginal") or exif_data.get("Image DateTime") or datetime.now(timezone.utc).isoformat()
-        ts_utc = datetime.now(timezone.utc).isoformat()
+        raw_exif_ts = exif_data.get("EXIF DateTimeOriginal") or exif_data.get("Image DateTime")
+        if raw_exif_ts:
+            # Convert EXIF "YYYY:MM:DD HH:MM:SS" to ISO-like for normalise_to_utc
+            exif_iso = str(raw_exif_ts).replace(":", "-", 2)
+            ts_utc, ts_original = normalise_to_utc(exif_iso, default_tz=default_tz)
+        else:
+            ts_original = "EXIF_TIMESTAMP_ABSENT"
+            ts_utc = "1970-01-01T00:00:00+00:00"
 
         ref = {
             "file": filename,
