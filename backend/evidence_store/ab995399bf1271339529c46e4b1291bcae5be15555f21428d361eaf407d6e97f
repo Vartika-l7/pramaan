@@ -1,0 +1,22 @@
+{
+  "account": "vikram.sharma@example.com",
+  "device_id": "D1",
+  "locations": [
+    {
+      "timestamp": "2026-03-15T14:00:00+05:30",
+      "lat": 26.9124,
+      "lon": 75.7873,
+      "accuracy_m": 25.0,
+      "place_name": "Jaipur",
+      "device_id": "D1"
+    },
+    {
+      "timestamp": "2026-03-14T18:00:00+05:30",
+      "lat": 28.6279,
+      "lon": 77.3649,
+      "accuracy_m": 30.0,
+      "place_name": "Noida Sector 62",
+      "device_id": "D1"
+    }
+  ]
+}

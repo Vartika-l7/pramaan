@@ -1,0 +1,5 @@
+timestamp,direction,number,duration_sec,cell_tower_id,location_name,device_id
+2026-03-12 09:15:00,INCOMING,+91 90000 10001,305,TOW-NOI-042,Noida Sector 62,D1
+2026-03-13 14:20:00,OUTGOING,+91 90000 10004,180,TOW-NOI-042,Noida Sector 62,D2
+2026-03-14 11:00:00,INCOMING,+91 90000 10001,140,TOW-NOI-045,Noida Sector 18,D1
+2026-03-15 11:15:00,OUTGOING,+91 90000 10001,412,TOW-DEL-009,Delhi Connaught Place,D2

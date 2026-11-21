@@ -1,0 +1,26 @@
+From MAILER-DAEMON Sat Nov 21 20:16:26 2026
+From: vikram.sharma@alpha-wealth.example.com
+To: deepak.rawat@example.com
+Subject: Daily Settlement Instructions
+Date: Sat, 14 Mar 2026 11:00:00 +0530
+Message-ID: <settle-002@alpha-wealth.example.com>
+Received: from relay.example.com (203.0.113.45) by mx.example.com; Sat, 14 Mar 2026 11:01:00 +0530
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+MIME-Version: 1.0
+
+Forward 90% of incoming credits to Sunita Verma and Kabir Anand immediately.
+
+From MAILER-DAEMON Sat Nov 21 20:16:26 2026
+From: admin@alpha-wealth.example.com
+To: riya.support@example.com
+Subject: Backdated Receipt Notice
+Date: Thu, 12 Mar 2026 08:00:00 +0530
+Message-ID: <backdate-003@alpha-wealth.example.com>
+Received: from relay.example.com (203.0.113.46) by mx.example.com; Sun, 15 Mar 2026 08:00:00 +0530
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+MIME-Version: 1.0
+
+Use the attached withdrawal screenshot for customer reassurance.
+
