@@ -20,6 +20,7 @@ from backend.app.api.report import router as report_router
 from backend.app.api.benchmark import router as benchmark_router
 from backend.app.api.sequence import router as sequence_router
 from backend.app.api.scene import router as scene_router
+from backend.app.api.assistant import router as assistant_router
 
 
 @asynccontextmanager
@@ -61,6 +62,7 @@ app.include_router(report_router)
 app.include_router(benchmark_router)
 app.include_router(sequence_router)
 app.include_router(scene_router)
+app.include_router(assistant_router)
 
 
 @app.get("/api/health")

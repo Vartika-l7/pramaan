@@ -8,6 +8,7 @@ import {
   CheckSquare,
   Package,
   Shield,
+  MessageSquare,
 } from 'lucide-react';
 
 const NAV_ITEMS = [
@@ -17,6 +18,7 @@ const NAV_ITEMS = [
   { index: '04', to: '/events', label: 'Event Sequence', icon: Clock },
   { index: '05', to: '/review', label: 'Review Queue', icon: CheckSquare },
   { index: '06', to: '/package', label: 'Case Package', icon: Package },
+  { index: '07', to: '/assistant', label: 'Assistant', icon: MessageSquare },
 ];
 
 export const LeftRail: React.FC = () => {

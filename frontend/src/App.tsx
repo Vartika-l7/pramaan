@@ -12,6 +12,7 @@ import { KnowledgeGraphPage } from './pages/KnowledgeGraphPage';
 import { EventSequencePage } from './pages/EventSequencePage';
 import { ReviewQueuePage } from './pages/ReviewQueuePage';
 import { CasePackagePage } from './pages/CasePackagePage';
+import { AssistantPage } from './pages/AssistantPage';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -44,6 +45,7 @@ export const App: React.FC = () => {
                 <Route path="/events" element={<EventSequencePage />} />
                 <Route path="/review" element={<ReviewQueuePage />} />
                 <Route path="/package" element={<CasePackagePage />} />
+                <Route path="/assistant" element={<AssistantPage />} />
                 <Route path="*" element={<Navigate to="/" replace />} />
               </Routes>
             </main>
