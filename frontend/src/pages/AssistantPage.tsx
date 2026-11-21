@@ -113,12 +113,21 @@ export const AssistantPage: React.FC = () => {
 
   const promoteAnswer = async (resp: any) => {
     const refs = (resp.claims || []).flatMap((c: any) => c.refs || []);
-    await fetch('/api/assistant/promote', {
+    if (refs.length === 0) {
+      setPromotedNotice('Cannot add unsourced answer to Review Queue (Rule V4: No source, no claim).');
+      return;
+    }
+    const res = await fetch('/api/assistant/promote', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ text: resp.answer, refs }),
+      body: JSON.stringify({ text: resp.answer, refs, ai_run_id: resp.ai_run_id }),
     });
-    setPromotedNotice('Added to Review Queue (Workspace 1) as PROPOSED claim.');
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ detail: 'Failed to promote claim' }));
+      setPromotedNotice(`Rejected by Verifier: ${err.detail || 'Failed to add to Review Queue'}`);
+      return;
+    }
+    setPromotedNotice('Verified & added to Review Queue (Workspace 1) awaiting human approval.');
   };
 
   const activeMessage = messages[selectedMsgIdx] || null;
@@ -262,11 +271,17 @@ export const AssistantPage: React.FC = () => {
                     <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-border text-xs">
                       <button
                         type="button"
+                        disabled={!r.claims || r.claims.length === 0}
+                        title={
+                          !r.claims || r.claims.length === 0
+                            ? 'Cannot promote answers with zero cited source records'
+                            : 'Verify and send to Review Queue'
+                        }
                         onClick={(e) => {
                           e.stopPropagation();
                           promoteAnswer(r);
                         }}
-                        className="inline-flex items-center gap-1 px-2.5 py-1 rounded border border-teal-border bg-teal-light text-teal font-medium cursor-pointer"
+                        className="inline-flex items-center gap-1 px-2.5 py-1 rounded border border-teal-border bg-teal-light text-teal font-medium cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
                       >
                         <PlusCircle className="w-3.5 h-3.5" />
                         <span>Add to review queue</span>

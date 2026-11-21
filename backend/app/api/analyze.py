@@ -17,6 +17,9 @@ from backend.app.timeline.anomalies import detect_timeline_anomalies, detect_spa
 from backend.app.authenticity.exif import inspect_image_authenticity
 from backend.app.authenticity.statement_checks import verify_statement_arithmetic
 from backend.app.sequence.generator import generate_event_sequence
+from backend.app.ai.provider import get_ai_provider
+from backend.app.ai.run_records import record_ai_run
+from backend.app.verify.claim_verifier import verify_claims
 
 router = APIRouter(prefix="/api/analyze", tags=["analyze"])
 
@@ -50,6 +53,38 @@ def execute_full_pipeline(case_id: Optional[str] = None):
         # 6. Automated event-sequence generation
         episodes = generate_event_sequence(conn)
 
+        # 7. Draft & verify claims for the human Review Queue (never auto-approved)
+        cursor.execute("SELECT id, ts_utc, kind, text, amount, actor, counterparty FROM events ORDER BY ts_utc ASC, id ASC LIMIT 200;")
+        ev_rows = [dict(r) for r in cursor.fetchall()]
+        cursor.execute("SELECT id, kind, severity, description FROM anomalies ORDER BY id ASC;")
+        anom_rows = [dict(r) for r in cursor.fetchall()]
+        cursor.execute("SELECT id, src, dst, edge_type, reason_text FROM edges ORDER BY id ASC;")
+        edge_rows = [dict(r) for r in cursor.fetchall()]
+
+        claims_verified = 0
+        claims_removed = 0
+        if ev_rows or anom_rows or edge_rows:
+            provider = get_ai_provider()
+            drafted = provider.draft_claims({"events": ev_rows, "anomalies": anom_rows, "edges": edge_rows})
+            input_ids = [e["id"] for e in ev_rows] + [a["id"] for a in anom_rows] + [e["id"] for e in edge_rows]
+            run_rec = record_ai_run(
+                conn,
+                task="claim_drafting",
+                model_name=getattr(provider, "model_name", provider.__class__.__name__),
+                model_version=getattr(provider, "model_version", "1.0"),
+                parameters=getattr(provider, "parameters", {"temperature": 0, "seed": 42}),
+                prompt=getattr(provider, "last_prompt", ""),
+                input_record_ids=input_ids,
+                raw_output=getattr(provider, "last_raw_output", json.dumps(drafted, ensure_ascii=True)),
+                verifier_result={"status": "PENDING_VERIFICATION", "proposed_count": len(drafted)},
+            )
+            for c in drafted:
+                c["ai_run_id"] = run_rec["id"]
+                c["generated_by"] = provider.__class__.__name__
+            ver_res = verify_claims(conn, drafted)
+            claims_verified = ver_res["verified_count"]
+            claims_removed = ver_res["removed_count"]
+
         return {
             "status": "COMPLETED",
             "parsed_evidence": len(pending),
@@ -59,6 +94,8 @@ def execute_full_pipeline(case_id: Optional[str] = None):
             "timeline_anomalies": len(tl_anoms) + len(sp_anoms),
             "authenticity_anomalies": len(img_anoms) + len(stmt_anoms),
             "episodes_generated": len(episodes),
+            "claims_verified": claims_verified,
+            "claims_removed": claims_removed,
         }
     finally:
         conn.close()

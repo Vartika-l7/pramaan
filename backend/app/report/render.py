@@ -188,22 +188,36 @@ def generate_court_report_pdf(
     story.append(m_table)
     story.append(Spacer(1, 14))
 
-    # 4. Findings Table (Approved and Verified Claims with Citations)
-    story.append(Paragraph("3. Verified Investigative Findings (With Source Citations)", section_heading))
-    cursor.execute("SELECT text, kind, tier, status, source_refs_json FROM claims WHERE status IN ('APPROVED', 'VERIFIED');")
+    # 4. Findings Table (Human-Approved Findings Only)
+    story.append(Paragraph("3. Human-Approved Investigative Findings (With Source Citations)", section_heading))
+    cursor.execute("SELECT text, kind, tier, status, source_refs_json FROM claims WHERE status = 'APPROVED' ORDER BY rowid ASC;")
     claims_rows = cursor.fetchall()
+    cursor.execute("SELECT src, dst, edge_type, reason_text, tier, event_ids_json FROM edges WHERE status = 'APPROVED' ORDER BY strength DESC;")
+    approved_edges_rows = cursor.fetchall()
 
-    if claims_rows:
-        findings_table_data = [["Finding #", "Verified Finding Statement", "Tier", "Cited Exhibit Refs"]]
-        for idx, cl in enumerate(claims_rows, start=1):
+    if claims_rows or approved_edges_rows:
+        findings_table_data = [["Finding #", "Approved Finding Statement", "Tier", "Cited Exhibit Refs"]]
+        finding_idx = 1
+        for cl in claims_rows:
             refs = json.loads(cl["source_refs_json"])
             ref_str = ", ".join([r[:8] for r in refs]) if refs else "N/A"
             findings_table_data.append([
-                str(idx),
+                str(finding_idx),
                 Paragraph(cl["text"], body_style),
                 cl["tier"],
                 ref_str,
             ])
+            finding_idx += 1
+        for ed in approved_edges_rows:
+            eids = json.loads(ed["event_ids_json"])
+            ref_str = ", ".join([r[:8] for r in eids[:4]]) if eids else "N/A"
+            findings_table_data.append([
+                str(finding_idx),
+                Paragraph(f"{ed['src']} -> {ed['dst']} ({ed['edge_type']}): {ed['reason_text']}", body_style),
+                ed["tier"],
+                ref_str,
+            ])
+            finding_idx += 1
 
         f_table = Table(findings_table_data, colWidths=[45, 330, 75, 90])
         f_table.setStyle(TableStyle([
@@ -216,13 +230,13 @@ def generate_court_report_pdf(
         ]))
         story.append(f_table)
     else:
-        story.append(Paragraph("<i>No approved claims recorded. Human review required.</i>", body_style))
+        story.append(Paragraph("<i>No human-approved findings recorded. Only human-approved items enter the court report.</i>", body_style))
 
     story.append(Spacer(1, 14))
 
-    # 5. Forensic Authenticity & Anomaly Findings
-    story.append(Paragraph("4. Document & Media Authenticity Indicators", section_heading))
-    cursor.execute("SELECT kind, severity, description FROM anomalies ORDER BY severity ASC;")
+    # 5. Human-Approved Document & Media Authenticity Indicators
+    story.append(Paragraph("4. Approved Document & Media Authenticity Indicators", section_heading))
+    cursor.execute("SELECT kind, severity, description FROM anomalies WHERE status = 'APPROVED' ORDER BY severity ASC;")
     anom_rows = cursor.fetchall()
 
     if anom_rows:
@@ -242,6 +256,8 @@ def generate_court_report_pdf(
             ('VALIGN', (0,0), (-1,-1), 'TOP'),
         ]))
         story.append(a_table)
+    else:
+        story.append(Paragraph("<i>No human-approved authenticity indicators in this court report. Unapproved indicators remain in the Investigation workspace.</i>", body_style))
 
     story.append(PageBreak())
 

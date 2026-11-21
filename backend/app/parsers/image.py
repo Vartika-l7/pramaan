@@ -3,11 +3,14 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
+import logging
 from pathlib import Path
 from typing import List, Optional, Tuple
 import exifread
 import imagehash
 from PIL import Image
+
+logging.getLogger("exifread").setLevel(logging.ERROR)
 
 from backend.app.parsers.base import BaseParser, ParsedEvent, ParseReport, SkippedUnit, ParseErrorUnit
 from backend.app.parsers.time_utils import normalise_to_utc

@@ -1,23 +1,35 @@
 {
   "dataset_notice": "Synthetic dataset (Case PRM-2026-0042). Evaluated offline.",
-  "evaluated_at": "2026-11-16T12:13:17Z",
+  "evaluated_at": "2026-11-21T21:45:55Z",
+  "machine": {
+    "platform": "macOS-15.6-arm64-arm-64bit",
+    "machine": "arm64",
+    "python": "3.12.12"
+  },
   "throughput": {
-    "hash_mb_per_sec": 885.9,
-    "hash_sec_per_gb": 1.16,
-    "parse_messages_per_sec": 48.9,
-    "total_events_parsed": 745,
-    "parse_time_sec": 14.426
+    "hash_mb_per_sec": 1066.5,
+    "hash_sec_per_gb": 0.96,
+    "parse_messages_per_sec": 709.2,
+    "parse_events_per_sec": 763.5,
+    "total_events_parsed": 760,
+    "files_ingested": 20,
+    "parse_time_sec": 0.995,
+    "time_to_first_graph_sec": 1.252,
+    "full_analysis_time_sec": 1.402,
+    "graph_nodes": 170,
+    "graph_edges": 139,
+    "episodes_generated": 16
   },
   "accuracy": {
     "pramaan_precision": 1.0,
-    "pramaan_recall": 0.9,
-    "pramaan_f1": 0.947,
+    "pramaan_recall": 1.0,
+    "pramaan_f1": 1.0,
     "naive_baseline_f1": 0.75,
-    "f1_delta_percent": 19.7
+    "f1_delta_percent": 25.0
   },
   "planted_facts": {
-    "detected_count": 10,
-    "total_count": 10,
+    "detected_count": 15,
+    "total_count": 15,
     "detection_rate": 1.0,
     "fact_details": [
       {
@@ -69,12 +81,37 @@
         "id": "GT-10",
         "name": "Spatial Cell Tower Movement",
         "detected": true
+      },
+      {
+        "id": "GT-11",
+        "name": "Impossible Travel Anomaly",
+        "detected": true
+      },
+      {
+        "id": "GT-12",
+        "name": "Email Header IP Matched to Network Log",
+        "detected": true
+      },
+      {
+        "id": "GT-13",
+        "name": "Portal Login During Chat Silence Gap",
+        "detected": true
+      },
+      {
+        "id": "GT-14",
+        "name": "CCTV Clock Offset Alignment",
+        "detected": true
+      },
+      {
+        "id": "GT-15",
+        "name": "Two Personas Sharing IP and Device",
+        "detected": true
       }
     ]
   },
   "claim_verifier": {
-    "proposed": 2,
-    "verified": 1,
+    "proposed": 4,
+    "verified": 3,
     "removed": 1,
     "modified": 0
   }

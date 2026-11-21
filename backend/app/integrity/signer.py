@@ -1,8 +1,16 @@
-"""Ed25519 Cryptographic Signing & Verification for PRAMAAN Case Manifests."""
+"""Ed25519 Cryptographic Signing & Verification for PRAMAAN Case Manifests.
+
+NOTE (Demo Keys): When no keypair exists in `KEYS_DIR`, `get_or_create_keypair()`
+generates a self-contained Ed25519 keypair on first run for local demonstration.
+These generated keys are demo keys stored locally (gitignored) and must be
+replaced by HSM-backed or per-examiner PKI keys in production deployments.
+"""
 
 from __future__ import annotations
 
 import base64
+import logging
+import os
 from pathlib import Path
 from typing import Tuple
 
@@ -10,12 +18,14 @@ from cryptography.hazmat.primitives.asymmetric import ed25519
 from cryptography.hazmat.primitives import serialization
 from backend.app.config import KEYS_DIR
 
+logger = logging.getLogger(__name__)
+
 PRIVATE_KEY_PATH = KEYS_DIR / "ed25519_private.pem"
 PUBLIC_KEY_PATH = KEYS_DIR / "ed25519_public.pem"
 
 
 def get_or_create_keypair() -> Tuple[ed25519.Ed25519PrivateKey, ed25519.Ed25519PublicKey]:
-    """Load existing Ed25519 keypair or generate a new self-contained keypair on first run."""
+    """Load existing Ed25519 keypair or generate a new local demo keypair on first run."""
     KEYS_DIR.mkdir(parents=True, exist_ok=True)
 
     if PRIVATE_KEY_PATH.exists() and PUBLIC_KEY_PATH.exists():
@@ -25,7 +35,8 @@ def get_or_create_keypair() -> Tuple[ed25519.Ed25519PrivateKey, ed25519.Ed25519P
             public_key = serialization.load_pem_public_key(f.read())
         return private_key, public_key
 
-    # Generate new Ed25519 keypair
+    # Generate new local demo Ed25519 keypair on first run
+    logger.info("Generating first-run local demo Ed25519 keypair in %s", KEYS_DIR)
     private_key = ed25519.Ed25519PrivateKey.generate()
     public_key = private_key.public_key()
 
@@ -38,6 +49,10 @@ def get_or_create_keypair() -> Tuple[ed25519.Ed25519PrivateKey, ed25519.Ed25519P
                 encryption_algorithm=serialization.NoEncryption(),
             )
         )
+    try:
+        os.chmod(PRIVATE_KEY_PATH, 0o600)
+    except OSError:
+        pass
 
     # Save public key PEM
     with open(PUBLIC_KEY_PATH, "wb") as f:

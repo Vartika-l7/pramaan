@@ -1,12 +1,10 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   Upload,
+  FolderUp,
   X,
   Lock,
-  ShieldCheck,
-  AlertTriangle,
-  FileSearch,
   RefreshCw,
 } from 'lucide-react';
 import {
@@ -26,13 +24,48 @@ import { SkeletonBlock, EmptyState, ErrorState } from '../components/ui/Skeleton
 const SOURCE_FAMILIES: Array<{ id: string; label: string; types: string[] }> = [
   { id: 'ALL', label: 'All Families', types: [] },
   { id: 'mobile', label: 'Mobile', types: ['calllog'] },
-  { id: 'social', label: 'Social Media', types: ['whatsapp', 'social_media'] },
-  { id: 'cctv', label: 'CCTV / Media', types: ['image', 'cctv'] },
-  { id: 'cloud', label: 'Cloud', types: ['cloud'] },
+  { id: 'social', label: 'Social Media', types: ['whatsapp', 'social_media', 'social_telegram', 'social_generic'] },
+  { id: 'cctv', label: 'CCTV / Media', types: ['image', 'cctv', 'cctv_index', 'cctv_video'] },
+  { id: 'cloud', label: 'Cloud', types: ['cloud', 'cloud_location', 'cloud_activity'] },
   { id: 'financial', label: 'Financial', types: ['bank_pdf', 'bank_csv'] },
   { id: 'email', label: 'Email', types: ['email'] },
   { id: 'network', label: 'Network', types: ['network_log'] },
 ];
+
+const SKIPPED_REFERENCE_FILES = new Set([
+  'ground_truth.json',
+  'benchmark_results.json',
+  'assistant_eval_results.json',
+  'tower_registry.csv',
+]);
+
+async function collectFilesFromEntry(entry: any): Promise<File[]> {
+  if (!entry) return [];
+  if (entry.isFile) {
+    return new Promise((resolve) => {
+      entry.file((file: File) => resolve([file]), () => resolve([]));
+    });
+  }
+  if (entry.isDirectory) {
+    const reader = entry.createReader();
+    const entries: any[] = await new Promise((resolve) => {
+      const acc: any[] = [];
+      const readBatch = () => {
+        reader.readEntries((batch: any[]) => {
+          if (!batch.length) resolve(acc);
+          else {
+            acc.push(...batch);
+            readBatch();
+          }
+        }, () => resolve(acc));
+      };
+      readBatch();
+    });
+    const nested = await Promise.all(entries.map((child) => collectFilesFromEntry(child)));
+    return nested.flat();
+  }
+  return [];
+}
 
 function familyForType(sourceType: string): string {
   const found = SOURCE_FAMILIES.find((f) => f.types.includes(sourceType));
@@ -41,11 +74,13 @@ function familyForType(sourceType: string): string {
 
 export const EvidenceVaultPage: React.FC = () => {
   const queryClient = useQueryClient();
+  const folderInputRef = useRef<HTMLInputElement>(null);
   const [selectedExhibit, setSelectedExhibit] = useState<string | null>(null);
   const [drawerTab, setDrawerTab] = useState<'custody' | 'parse' | 'authenticity' | 'mentions'>('custody');
   const [familyFilter, setFamilyFilter] = useState<string>('ALL');
   const [isDragging, setIsDragging] = useState(false);
   const [rehashMsg, setRehashMsg] = useState<string | null>(null);
+  const [uploadProgress, setUploadProgress] = useState<string | null>(null);
 
   const { data: exhibits, isLoading, isError, refetch } = useQuery({
     queryKey: ['evidenceList'],
@@ -81,15 +116,43 @@ export const EvidenceVaultPage: React.FC = () => {
     },
   });
 
-  const handleDrop = (e: React.DragEvent) => {
-    e.preventDefault();
-    setIsDragging(false);
-    Array.from(e.dataTransfer.files).forEach((file) => uploadMutation.mutate(file));
+  const uploadFilesSequentially = async (rawFiles: File[], fromFolder: boolean) => {
+    const filtered = rawFiles
+      .filter((f) => {
+        if (!f.name || f.name.startsWith('.')) return false;
+        if (fromFolder && SKIPPED_REFERENCE_FILES.has(f.name)) return false;
+        return f.size >= 0;
+      })
+      .sort((a, b) => a.name.localeCompare(b.name));
+
+    for (let i = 0; i < filtered.length; i++) {
+      setUploadProgress(`Hashing ${i + 1}/${filtered.length}: ${filtered[i].name}`);
+      await uploadMutation.mutateAsync(filtered[i]);
+    }
+    setUploadProgress(null);
   };
 
-  const handleFileInput = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleDrop = async (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+    const items = Array.from(e.dataTransfer.items || []);
+    const entries = items
+      .map((it) => (typeof it.webkitGetAsEntry === 'function' ? it.webkitGetAsEntry() : null))
+      .filter((en): en is any => Boolean(en));
+
+    if (entries.length > 0) {
+      const hasDir = entries.some((en) => en.isDirectory);
+      const collected = (await Promise.all(entries.map((en) => collectFilesFromEntry(en)))).flat();
+      await uploadFilesSequentially(collected, hasDir);
+    } else {
+      await uploadFilesSequentially(Array.from(e.dataTransfer.files), false);
+    }
+  };
+
+  const handleFileInput = async (e: React.ChangeEvent<HTMLInputElement>, fromFolder = false) => {
     if (e.target.files) {
-      Array.from(e.target.files).forEach((file) => uploadMutation.mutate(file));
+      await uploadFilesSequentially(Array.from(e.target.files), fromFolder);
+      e.target.value = '';
     }
   };
 
@@ -117,11 +180,27 @@ export const EvidenceVaultPage: React.FC = () => {
         title="Evidence Vault"
         subtitle="Content-addressed read-only exhibit storage. Files are SHA-256 hashed in streaming chunks at ingest and sealed in the custody chain."
         actions={
-          <label className="inline-flex items-center gap-2 px-3.5 py-2 bg-teal text-white text-xs font-semibold rounded cursor-pointer hover:opacity-90 transition-opacity duration-150">
-            <Upload className="w-3.5 h-3.5" aria-hidden="true" />
-            <span>{uploadMutation.isPending ? 'Hashing…' : 'Upload Exhibit'}</span>
-            <input type="file" multiple onChange={handleFileInput} className="hidden" />
-          </label>
+          <div className="flex items-center gap-2">
+            <label className="inline-flex items-center gap-2 px-3 py-2 border border-teal text-teal bg-panel text-xs font-semibold rounded cursor-pointer hover:bg-teal-light transition-colors duration-150">
+              <FolderUp className="w-3.5 h-3.5" aria-hidden="true" />
+              <span>Upload Folder</span>
+              <input
+                ref={folderInputRef}
+                type="file"
+                multiple
+                // @ts-ignore
+                webkitdirectory=""
+                directory=""
+                onChange={(e) => handleFileInput(e, true)}
+                className="hidden"
+              />
+            </label>
+            <label className="inline-flex items-center gap-2 px-3.5 py-2 bg-teal text-white text-xs font-semibold rounded cursor-pointer hover:opacity-90 transition-opacity duration-150">
+              <Upload className="w-3.5 h-3.5" aria-hidden="true" />
+              <span>{uploadProgress || (uploadMutation.isPending ? 'Hashing…' : 'Upload Exhibit')}</span>
+              <input type="file" multiple onChange={(e) => handleFileInput(e, false)} className="hidden" />
+            </label>
+          </div>
         }
       />
 
@@ -138,14 +217,16 @@ export const EvidenceVaultPage: React.FC = () => {
         }`}
       >
         <div className="text-xs text-muted">
-          <span className="font-semibold text-ink">Drag and drop exhibits here</span> to compute SHA-256 on ingest (mobile, social media, CCTV, cloud, financial, email, network).
+          <span className="font-semibold text-ink">Drag and drop files or an evidence folder here</span> to compute SHA-256 on ingest (mobile, social media, CCTV, cloud, financial, email, network).
         </div>
-        {uploadMutation.data && (
+        {uploadProgress ? (
+          <span className="font-mono text-xs text-teal font-semibold">{uploadProgress}</span>
+        ) : uploadMutation.data ? (
           <div className="flex items-center gap-2 text-xs">
             <span className="text-approved font-semibold">Ingested:</span>
             <HashChip hash={uploadMutation.data.sha256} />
           </div>
-        )}
+        ) : null}
       </div>
 
       {/* Source Family Filters */}
@@ -347,11 +428,48 @@ export const EvidenceVaultPage: React.FC = () => {
                     <div className="space-y-3">
                       <div className="p-3 bg-paper border border-border rounded flex items-center justify-between">
                         <span className="font-semibold text-ink">Image Forensics Verdict</span>
-                        <TierBadge tier={imageData?.tampered ? 'TAMPERED' : 'VERIFIED BY CODE'} size="sm" />
+                        <TierBadge tier={imageData?.anomaly ? 'TAMPERED' : 'VERIFIED BY CODE'} size="sm" />
                       </div>
-                      <pre className="p-3 bg-paper border border-border rounded font-mono text-[11px] overflow-x-auto">
-                        {JSON.stringify(imageData, null, 2)}
-                      </pre>
+                      {imageData?.anomaly && (
+                        <div className="p-3 bg-vermilion-light border border-vermilion rounded space-y-1.5 text-xs">
+                          <div className="font-semibold text-vermilion">Edited-Screenshot Indicators Detected</div>
+                          {imageData.anomaly.software && (
+                            <div>EXIF Software: <span className="font-mono font-semibold">{imageData.anomaly.software}</span></div>
+                          )}
+                          {(imageData.anomaly.datetime_original || imageData.anomaly.datetime_modified) && (
+                            <div className="font-mono text-[11px]">
+                              Created: {imageData.anomaly.datetime_original || '—'} · Modified: {imageData.anomaly.datetime_modified || '—'}
+                            </div>
+                          )}
+                          <div>ELA Hotspot Ratio: <span className="font-mono font-semibold">{((imageData.anomaly.hotspot_ratio || 0) * 100).toFixed(1)}%</span></div>
+                        </div>
+                      )}
+                      {imageData?.has_ela_heatmap && (
+                        <div className="grid grid-cols-2 gap-3">
+                          <div className="p-2 bg-paper border border-border rounded space-y-1">
+                            <div className="section-label">Original Exhibit</div>
+                            <img
+                              src={`/api/evidence/${detailData.id}/raw-preview`}
+                              alt={detailData.filename}
+                              className="w-full h-48 object-contain bg-white rounded border border-border"
+                            />
+                          </div>
+                          <div className="p-2 bg-paper border border-border rounded space-y-1">
+                            <div className="section-label">Error Level Analysis (ELA)</div>
+                            <img
+                              src={imageData.heatmap_url}
+                              alt="ELA Heatmap"
+                              className="w-full h-48 object-contain bg-black rounded border border-border"
+                            />
+                          </div>
+                        </div>
+                      )}
+                      <details className="border border-border rounded bg-paper">
+                        <summary className="px-3 py-1.5 cursor-pointer font-medium text-muted">Raw EXIF &amp; Forensics JSON</summary>
+                        <pre className="p-3 border-t border-border font-mono text-[11px] overflow-x-auto">
+                          {JSON.stringify(imageData, null, 2)}
+                        </pre>
+                      </details>
                     </div>
                   )
                 ) : isStatementExhibit ? (
@@ -359,11 +477,49 @@ export const EvidenceVaultPage: React.FC = () => {
                     <div className="space-y-3">
                       <div className="p-3 bg-paper border border-border rounded flex items-center justify-between">
                         <span className="font-semibold text-ink">Bank Ledger Arithmetic Check</span>
-                        <TierBadge tier={statementData?.mismatches?.length ? 'TAMPERED' : 'VERIFIED BY CODE'} size="sm" />
+                        <TierBadge tier={statementData?.has_arithmetic_mismatch ? 'TAMPERED' : 'VERIFIED BY CODE'} size="sm" />
                       </div>
-                      <pre className="p-3 bg-paper border border-border rounded font-mono text-[11px] overflow-x-auto">
-                        {JSON.stringify(statementData, null, 2)}
-                      </pre>
+                      {statementData?.rows?.length ? (
+                        <div className="border border-border rounded overflow-x-auto bg-paper">
+                          <table className="w-full text-left border-collapse text-[11px]">
+                            <thead className="bg-paper-subtle border-b border-border text-muted uppercase">
+                              <tr>
+                                <th className="py-1.5 px-2">Row</th>
+                                <th className="py-1.5 px-2">Date</th>
+                                <th className="py-1.5 px-2">Narration</th>
+                                <th className="py-1.5 px-2 text-right">Stated</th>
+                                <th className="py-1.5 px-2 text-right">Expected</th>
+                                <th className="py-1.5 px-2">Check</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-border">
+                              {statementData.rows.map((r: any) => (
+                                <tr
+                                  key={r.event_id}
+                                  className={r.status === 'FAIL' ? 'bg-vermilion-light text-vermilion font-semibold' : ''}
+                                >
+                                  <td className="py-1.5 px-2 font-mono">#{r.row_index}</td>
+                                  <td className="py-1.5 px-2 font-mono whitespace-nowrap">{r.date}</td>
+                                  <td className="py-1.5 px-2 max-w-[180px] truncate" title={r.narration}>{r.narration}</td>
+                                  <td className="py-1.5 px-2 font-mono text-right">
+                                    {r.stated_balance !== null && r.stated_balance !== undefined ? r.stated_balance.toLocaleString('en-IN') : '—'}
+                                  </td>
+                                  <td className="py-1.5 px-2 font-mono text-right">
+                                    {r.expected_balance !== null && r.expected_balance !== undefined ? r.expected_balance.toLocaleString('en-IN') : '—'}
+                                  </td>
+                                  <td className="py-1.5 px-2 font-mono">{r.status}</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      ) : null}
+                      <details className="border border-border rounded bg-paper">
+                        <summary className="px-3 py-1.5 cursor-pointer font-medium text-muted">Raw Statement Check JSON</summary>
+                        <pre className="p-3 border-t border-border font-mono text-[11px] overflow-x-auto">
+                          {JSON.stringify(statementData, null, 2)}
+                        </pre>
+                      </details>
                     </div>
                   )
                 ) : (

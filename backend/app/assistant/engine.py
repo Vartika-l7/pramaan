@@ -11,6 +11,7 @@ import httpx
 from backend.app.config import OLLAMA_HOST, PRIMARY_MODEL
 from backend.app.ai.provider import OllamaProvider
 from backend.app.ai.run_records import record_ai_run, build_explain_payload
+from backend.app.extract.language import transliterate_devanagari_to_latin
 from backend.app.verify.claim_verifier import verify_claims
 from backend.app.assistant import tools as T
 
@@ -28,7 +29,7 @@ def _resolve_pronouns(question: str, focus: Optional[str]) -> str:
 
 
 def _deterministic_plan(question: str, focus: Optional[str]) -> List[Tuple[str, Dict[str, Any]]]:
-    q = question.lower()
+    q = transliterate_devanagari_to_latin(question).lower()
     calls: List[Tuple[str, Dict[str, Any]]] = []
 
     if "diary" in q:
@@ -43,12 +44,15 @@ def _deterministic_plan(question: str, focus: Optional[str]) -> List[Tuple[str, 
         calls.append(("list_anomalies", {"kind": "ANOMALY_CHAT_GAP"}))
         return calls
     if "money" in q or "transfer" in q or "meera" in q or "funnel" in q or "mule" in q:
+        if "london" in q or "dubai" in q or "flight" in q or "passport" in q or "hotel" in q:
+            calls.append(("search_text", {"query": question}))
+            return calls
         acct = "Meera" if "meera" in q else None
         calls.append(("transfers_summary", {"account": acct}))
         calls.append(("list_anomalies", {"kind": "PATTERN_FUNNEL"}))
         return calls
-    if "camera" in q or "cctv" in q or "withdrawal" in q or "atm" in q:
-        calls.append(("search_text", {"query": "CCTV ATM withdrawal"}))
+    if "camera" in q or "cctv" in q or "withdrawal" in q or "atm" in q or "clock offset" in q:
+        calls.append(("search_text", {"query": "CCTV ATM withdrawal CAM-NOI-ATM-01"}))
         calls.append(("who_was_near", {"location": "Noida"}))
         return calls
     if ("where" in q or "location" in q or "travel" in q) and any(
@@ -61,10 +65,19 @@ def _deterministic_plan(question: str, focus: Optional[str]) -> List[Tuple[str, 
             calls.append(("locations_for", {"entity_or_device": target}))
         calls.append(("list_anomalies", {"kind": "IMPOSSIBLE_TRAVEL"}))
         return calls
-    if "connected" in q or "upi" in q or "vikram" in q or "riya" in q or "ip" in q or "email" in q:
+    if "email_support" in q or ("email" in q and "say" in q):
+        calls.append(("events_in_range", {"filters": {"source_type": "email"}}))
+        return calls
+    if any(w in q for w in ("connected", "connection", "link", "share", "activity", "recorded", "appears", "both", "happened with")):
         target = focus or "vikram.alpha@okaxis"
-        if "203.0.113.45" in q:
+        if "203.0.113.45" in q or ("ip" in q and "email" in q):
             target = "203.0.113.45"
+        elif "d1" in q or "device" in q:
+            target = "D1"
+        elif "vikram.sharma@example.com" in q:
+            target = "vikram.sharma@example.com"
+        elif "riya.support@example.com" in q:
+            target = "riya.support@example.com"
         elif "vikram" in q:
             target = "Vikram Sharma"
         elif "riya" in q:
@@ -73,9 +86,9 @@ def _deterministic_plan(question: str, focus: Optional[str]) -> List[Tuple[str, 
         calls.append(("search_text", {"query": target}))
         return calls
 
-    # Generic fallback: FTS5 search + entity lookup
+    # Generic fallback: FTS5 search across all evidence text/actors
     calls.append(("search_text", {"query": question}))
-    if focus:
+    if focus and any(w in q for w in ("this", "entity", "who", "what")):
         calls.append(("connections", {"entity_id": focus, "depth": 1}))
     return calls
 

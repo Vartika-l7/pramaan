@@ -129,7 +129,7 @@ export const CaseBar: React.FC = () => {
               className={`w-3 h-3 ${verifyMutation.isPending ? 'animate-spin' : ''}`}
               aria-hidden="true"
             />
-            <span>Verify</span>
+            <span>Verify now</span>
           </button>
         </div>
       </div>

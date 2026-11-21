@@ -1,48 +1,51 @@
-# PRAMAAN Cryptographic & Forensic Boundaries (LIMITS.md)
+# PRAMAAN Cryptographic & Forensic Boundaries (`docs/LIMITS.md`)
 
-This document clearly outlines what the PRAMAAN evidence integrity foundation protects against, and what it fundamentally cannot protect against due to physical and cryptographic constraints.
+This document clearly outlines what the PRAMAAN evidence integrity foundation and analysis engines protect against, and what they fundamentally cannot guarantee due to physical, cryptographic, and operational constraints.
 
 ---
 
 ## 1. What PRAMAAN Integrity Protects Against
 
 1. **Silent Bit Rot and Storage Corruption**
-   - SHA-256 digests are computed over raw input streams during ingest and recorded in SQLite metadata.
-   - Any flipped bit, truncated byte, or silent file mutation on disk immediately fails the verification check (`verify_case_integrity`) and identifies the exact failing exhibit.
+   - SHA-256 digests are computed over raw streaming 1 MB chunks during ingest and recorded in SQLite metadata.
+   - Any flipped bit, truncated byte, or silent file mutation on disk immediately fails `verify_case_integrity()` and identifies the exact failing exhibit (`failed_exhibit`).
 
 2. **Retroactive Evidence Tampering & Evidence Swapping**
-   - All files are stored under their SHA-256 hash in a content-addressable, read-only evidence store.
-   - Replacing a file with different content (even of the exact same size) or swapping exhibits EX-001 and EX-002 is detected and flagged by both SHA-256 comparison and Merkle tree root computation.
+   - All files are stored under their SHA-256 hash in a content-addressable, read-only (`0o444`) evidence store (`backend/evidence_store/<sha256>`).
+   - Replacing a file with different content or swapping exhibits fails both SHA-256 comparison and deterministic Merkle tree root computation.
 
 3. **Custody Log Insertion, Deletion, and Modification**
-   - The custody log uses SHA-256 hash-chaining: every entry seals the previous record's hash along with canonical JSON encoding of sequence, UTC timestamp, actor, action, and details.
-   - Inserting, deleting, or editing any historical custody row breaks the cryptographic chain at that exact sequence number.
-   - SQLite database triggers (`trg_custody_no_update`, `trg_custody_no_delete`) block runtime SQL `UPDATE` and `DELETE` queries at the database engine level.
+   - `custody_log` uses SHA-256 hash-chaining across canonical JSON records (`seq`, `ts_utc`, `actor`, `action`, `evidence_id`, `details`).
+   - SQLite triggers (`trg_custody_no_update`, `trg_custody_no_delete`) block SQL `UPDATE` and `DELETE` queries at the database engine level.
 
 4. **Package & Manifest Tampering**
-   - Case exhibits, their hashes, and the deterministic Merkle root are assembled into a `manifest.json`.
-   - The manifest is digitally signed using an asymmetric Ed25519 keypair.
-   - Any offline modification to the manifest, case exhibits, or Merkle root invalidates the Ed25519 cryptographic signature.
+   - Case exhibits, hashes, and the deterministic Merkle root are serialized to `manifest.json` and signed with Ed25519 (`manifest.sig`).
+   - Standalone `verifier/verifier.py` independently validates file hashes, Merkle root, `audit_log.json` hash chain, and Ed25519 signature offline.
 
-5. **Accidental Dropping of Evidence Units (Audit Reconciliation)**
-   - Evidence parsers implement strict accounting: every input line, CSV row, or PDF page is classified into parsed events, skipped units (with explicit reasons), or error units.
-   - Nothing is silently dropped.
+5. **Silent Evidence Dropping (Unit Reconciliation)**
+   - Every parser implements `parse_with_report()`, guaranteeing `total_units == parsed_events + len(skipped_units) + len(errors)`.
+
+6. **Unapproved AI Output Entering Court Reports**
+   - AI outputs are hashed into `ai_runs` + `custody_log`, filtered by deterministic Rules V1–V5, and restricted to `LEAD` tier until a human explicitly approves them in **Review and Report**. Only `APPROVED` claims and edges enter the court report preview and PDF.
 
 ---
 
 ## 2. What PRAMAAN Cannot Protect Against (Inherent Boundaries)
 
-1. **Full Host / Root Compromise**
-   - If an adversary gains unrestricted root or administrative access to the forensic workstation, they have access to the raw disk, SQLite files, and the local Ed25519 private key.
-   - An attacker with root control could drop database triggers, rebuild a fraudulent custody chain, recompute a new Merkle root, and re-sign with a new key.
-   - **Forensic Mitigation:** The Ed25519 public key fingerprint and the Merkle root are printed physically and embedded in the Section 65B Indian Evidence Act court certificate at the time of export. The court or opposing counsel can compare the hardcopy seal against digital files on an independent machine using the standalone verifier (`verifier.py`).
+1. **First-Run Demo Signing Keys vs. Production HSM/PKI**
+   - On first run, `backend/app/integrity/signer.py` generates a local Ed25519 keypair in `backend/keys/` (`ed25519_private.pem`, `ed25519_public.pem`). **These are demo keys for local evaluation only.**
+   - Anyone with root/host access to the demo workstation can read the local PEM file and drop SQLite triggers.
+   - **Mitigation:** Exported court packages embed the Merkle root and public key fingerprint in the Section 63 BSA / Section 65B IEA draft certificate and QR payload for independent offline verification (`verifier.py`). Production deployments must use HSMs or smartcard PKI (see [`docs/DEPLOYMENT_ROADMAP.md`](DEPLOYMENT_ROADMAP.md)).
 
-2. **Absence of a Trusted Network Timestamping Authority (Offline Operation)**
-   - PRAMAAN runs 100% offline with zero external network connectivity (no NTP/RFC 3161 TSA servers).
-   - Timestamps in the custody log reflect the local workstation system clock (`datetime.now(timezone.utc)`).
-   - **Forensic Mitigation:** All ingested exhibits record an explicit timezone assumption (`TIMEZONE_ASSUMED: Asia/Kolkata`) in the custody log and on every extracted event. Even if the local workstation clock drifted, the relative ordering of evidence is strictly preserved and enforced by the sequential hash-chain.
+2. **Absence of a Trusted Network Timestamping Authority (Strict Offline Mode)**
+   - Under `OFFLINE=1`, PRAMAAN blocks all non-loopback sockets (`0 outbound connections`), so no external NTP or RFC 3161 TSA server is contacted.
+   - Custody timestamps come from the workstation's local UTC clock (`datetime.now(timezone.utc)`), and evidence without embedded offsets records `TIMEZONE_ASSUMED` (`Asia/Kolkata`).
 
-3. **Authenticity of Pre-Ingest Evidence (Garbage In, Integrity Preserved)**
-   - Cryptographic hashing guarantees that evidence has not been altered *since the moment of ingest*. It does not guarantee that a suspect did not forge or edit a document *prior* to handing the phone or drive to the police.
-   - For example, an exported WhatsApp text file edited in Notepad prior to extraction will be faithfully hashed and preserved by PRAMAAN.
-   - **Forensic Mitigation:** PRAMAAN marks parser-extracted facts as `VERIFIED BY CODE` or `LEAD`. Pre-ingest authenticity must be corroborated via multi-source correlation (e.g. cross-referencing WhatsApp messages with Call Detail Records and Bank Statement timestamps).
+3. **Authenticity of Pre-Ingest Evidence ("Garbage In, Integrity Preserved")**
+   - SHA-256 hashing proves an exhibit was not altered *after ingest*, not that it was genuine prior to seizure.
+   - **Mitigation:** PRAMAAN surfaces EXIF/ELA indicators, bank running-balance discrepancies, and cross-source correlation checks as `LEAD` / `TAMPERED` indicators for human verification.
+
+4. **Optional Offline Binaries & Reference Data**
+   - **CCTV Video:** `CCTVVideoParser` provides cryptographic hashing, provenance, and container metadata (`ffprobe` if installed) — **no video/face analytics** are performed.
+   - **IP Geolocation:** Without an operator-supplied offline `.mmdb` (`GEOIP_DB_PATH`), `lookup_ip_location()` returns `"location unknown"`.
+   - **OCR & Local LLM:** When Tesseract or Ollama are absent, `ImageParser` marks `ocr_status: "UNAVAILABLE"` and AI flows operate in `DeterministicProvider` mode without inventing facts.

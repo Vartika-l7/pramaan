@@ -160,5 +160,34 @@ def test_ai_run_records_custody_and_explain_panel(tmp_path: Path):
         assert chal["total_objections"] >= 1
         assert "explain" in chal["objections"][0]
         assert chal["objections"][0]["explain"]["who_approved"]["label"] == "not yet approved"
+
+        # Unanswerable question mentioning an entity must still refuse cleanly
+        unans = ask_assistant(conn, "What is the flight number for Vikram's trip to Dubai?", session_id="t_unans")
+        assert "found nothing in the evidence" in unans["answer"].lower()
+        assert unans["claims"] == []
     finally:
         ingest_svc.EVIDENCE_STORE_DIR = orig_store
+
+
+def test_court_report_pdf_only_includes_approved(tmp_path: Path):
+    """Verify generate_court_report_pdf includes APPROVED findings and omits VERIFIED/LEAD-only claims."""
+    import pdfplumber
+    from backend.app.report.render import generate_court_report_pdf
+
+    conn = _fresh_conn()
+    conn.execute(
+        """
+        INSERT INTO claims (id, text, kind, tier, status, source_refs_json, quotes_json, generated_by)
+        VALUES ('cl_unapproved', 'UNAPPROVED_LEAD_MARKER', 'finding', 'LEAD', 'VERIFIED', '["e1"]', '[]', 'TEST'),
+               ('cl_approved', 'APPROVED_COURT_MARKER', 'finding', 'APPROVED', 'APPROVED', '["e1"]', '[]', 'TEST');
+        """
+    )
+    conn.commit()
+    pdf_path = tmp_path / "court_report.pdf"
+    generate_court_report_pdf(conn, pdf_path, case_id="PRM-TEST")
+    conn.close()
+
+    with pdfplumber.open(pdf_path) as pdf:
+        full_text = "\n".join(page.extract_text() or "" for page in pdf.pages)
+    assert "APPROVED_COURT_MARKER" in full_text
+    assert "UNAPPROVED_LEAD_MARKER" not in full_text

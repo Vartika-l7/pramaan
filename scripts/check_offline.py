@@ -91,6 +91,12 @@ def _find_npm() -> str:
 
 def build_frontend() -> None:
     frontend_dir = ROOT / "frontend"
+    dist_dir = frontend_dir / "dist"
+    if not (frontend_dir / "package.json").exists():
+        if (dist_dir / "index.html").exists():
+            print("[1/4] Pre-built offline frontend/dist detected (skipping npm build).")
+            return
+        raise RuntimeError("Neither frontend/package.json nor pre-built frontend/dist/index.html exists")
     npm_bin = _find_npm()
     print("[1/4] Building frontend production bundle...")
     proc = subprocess.run(
@@ -108,8 +114,13 @@ def scan_urls_and_assets() -> None:
     print("[2/4] Scanning source and build output for external URLs and runtime fetches...")
     violations = []
 
-    # Check frontend/index.html and frontend/src (strict: zero external URLs)
-    for target in [ROOT / "frontend" / "index.html", *(ROOT / "frontend" / "src").rglob("*")]:
+    # Check frontend/index.html and frontend/src if source is present (strict: zero external URLs)
+    scan_targets = []
+    if (ROOT / "frontend" / "index.html").exists():
+        scan_targets.append(ROOT / "frontend" / "index.html")
+    if (ROOT / "frontend" / "src").exists():
+        scan_targets.extend((ROOT / "frontend" / "src").rglob("*"))
+    for target in scan_targets:
         if not target.is_file() or target.suffix not in (".html", ".ts", ".tsx", ".css", ".js"):
             continue
         text = target.read_text("utf-8", errors="ignore")

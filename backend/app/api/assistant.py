@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 import uuid
 from typing import Any, Dict, List, Optional
-from fastapi import APIRouter, Body, Query
+from fastapi import APIRouter, Body, HTTPException, Query
 from fastapi.responses import StreamingResponse
 
 from backend.app.db import get_db_connection
@@ -17,6 +17,7 @@ from backend.app.assistant.tools import (
     draft_case_diary,
 )
 from backend.app.verify.challenger import run_challenger_analysis
+from backend.app.verify.claim_verifier import verify_claims
 
 router = APIRouter(prefix="/api/assistant", tags=["assistant"])
 
@@ -128,20 +129,35 @@ def promote_to_review_queue(
     text: str = Body(..., embed=True),
     refs: List[str] = Body(default=[], embed=True),
     kind: str = Body("assistant_finding", embed=True),
+    ai_run_id: Optional[str] = Body(None, embed=True),
     case_id: Optional[str] = Query(None),
 ):
-    """Add an assistant answer to the Review Queue as a PROPOSED claim."""
+    """Verify an assistant answer against Rules V1-V5 and add it to the Review Queue."""
+    if not refs:
+        raise HTTPException(
+            status_code=400,
+            detail="Cannot add to review queue without cited source record IDs (Rule V4: No source, no claim).",
+        )
     conn = get_db_connection(case_id)
     try:
         cid = str(uuid.uuid4())
-        conn.execute(
-            """
-            INSERT INTO claims (id, text, kind, tier, status, source_refs_json, quotes_json, generated_by, verifier_notes)
-            VALUES (?, ?, ?, 'LEAD', 'PROPOSED', ?, '[]', 'INVESTIGATOR_ASSISTANT', 'Promoted from Investigator Assistant');
-            """,
-            (cid, text, kind, json.dumps(refs)),
+        ver = verify_claims(
+            conn,
+            [
+                {
+                    "id": cid,
+                    "text": text,
+                    "kind": kind,
+                    "refs": refs,
+                    "quotes": [],
+                    "generated_by": "INVESTIGATOR_ASSISTANT",
+                    "ai_run_id": ai_run_id,
+                }
+            ],
         )
-        conn.commit()
-        return {"status": "PROPOSED", "claim_id": cid}
+        if ver["verified_count"] == 0:
+            reason = ver["removed_claims"][0]["reason"] if ver["removed_claims"] else "Failed deterministic verification"
+            raise HTTPException(status_code=400, detail=reason)
+        return {"status": "VERIFIED", "claim_id": cid}
     finally:
         conn.close()

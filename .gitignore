@@ -5,6 +5,7 @@ node_modules/
 
 # Production build outputs
 dist/
+frontend/dist/
 build/
 out/
 
@@ -19,11 +20,20 @@ venv/
 .venv/
 ENV/
 
-# Database files & logs
+# Database files, runtime evidence stores, demo keys & logs (generated on first run)
 *.sqlite
 *.sqlite3
 *.db
+*.db-wal
+*.db-shm
 *.log
+backend/keys/
+backend/case_data/
+backend/evidence_store/
+
+# Offline bundles & release archives
+offline_bundle/
+release/
 
 # Pytest / Test artifacts
 .pytest_cache/

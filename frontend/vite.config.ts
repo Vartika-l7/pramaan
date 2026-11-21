@@ -19,5 +19,18 @@ export default defineConfig({
       },
     },
   },
+  build: {
+    chunkSizeWarningLimit: 800,
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          react: ['react', 'react-dom', 'react-router-dom'],
+          ui: ['lucide-react', '@tanstack/react-query', 'zustand'],
+          graph: ['cytoscape', 'cytoscape-fcose'],
+          timeline: ['vis-data', 'vis-timeline'],
+        },
+      },
+    },
+  },
 });
 

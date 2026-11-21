@@ -37,10 +37,12 @@ const NODE_TYPES = [
   { value: 'PERSON', label: 'People' },
   { value: 'PHONE', label: 'Phones' },
   { value: 'UPI', label: 'UPI IDs' },
-  { value: 'BANK_ACCOUNT', label: 'Accounts' },
+  { value: 'ACCOUNT', label: 'Accounts' },
   { value: 'DEVICE', label: 'Devices' },
   { value: 'IP', label: 'IP Addresses' },
-  { value: 'EMAIL', label: 'Email Addresses' },
+  { value: 'EMAIL_ADDRESS', label: 'Email Addresses' },
+  { value: 'URL', label: 'URLs' },
+  { value: 'EXHIBIT', label: 'Exhibits' },
   { value: 'LOCATION', label: 'Locations' },
   { value: 'EPISODE', label: 'Episodes' },
 ];
@@ -99,26 +101,67 @@ export const KnowledgeGraphPage: React.FC = () => {
     },
   });
 
-  // Filter nodes client-side for search query & time range if provided
+  // Filter nodes & edges while preserving 1-hop neighborhood and matching edge reason_text
   const rawNodes = graphData?.nodes || [];
   const rawEdges = graphData?.edges || [];
-  const filteredNodes = rawNodes.filter((n: any) => {
-    const d = n.data || n;
-    if (searchQuery) {
-      const q = searchQuery.toLowerCase();
-      if (!(d.label || '').toLowerCase().includes(q) && !(d.type || '').toLowerCase().includes(q)) {
-        return false;
-      }
-    }
-    if (timeFrom && d.ts_utc && d.ts_utc < timeFrom) return false;
-    if (timeTo && d.ts_utc && d.ts_utc > timeTo) return false;
-    return true;
-  });
-  const allowedNodeIds = new Set(filteredNodes.map((n: any) => (n.data || n).id));
-  const filteredEdges = rawEdges.filter((e: any) => {
+  const qLower = searchQuery.trim().toLowerCase();
+
+  const timeAllowedIds = new Set(
+    rawNodes
+      .filter((n: any) => {
+        const d = n.data || n;
+        if (timeFrom && d.ts_utc && d.ts_utc < timeFrom) return false;
+        if (timeTo && d.ts_utc && d.ts_utc > timeTo) return false;
+        return true;
+      })
+      .map((n: any) => (n.data || n).id)
+  );
+
+  let filteredNodes = rawNodes.filter((n: any) => timeAllowedIds.has((n.data || n).id));
+  let filteredEdges = rawEdges.filter((e: any) => {
     const d = e.data || e;
-    return allowedNodeIds.has(d.source) && allowedNodeIds.has(d.target);
+    return timeAllowedIds.has(d.source) && timeAllowedIds.has(d.target);
   });
+
+  if (qLower) {
+    const directMatchedNodeIds = new Set(
+      filteredNodes
+        .filter((n: any) => {
+          const d = n.data || n;
+          return (
+            (d.label || '').toLowerCase().includes(qLower) ||
+            (d.id || '').toLowerCase().includes(qLower) ||
+            (d.type || '').toLowerCase().includes(qLower)
+          );
+        })
+        .map((n: any) => (n.data || n).id)
+    );
+
+    const matchedEdges = filteredEdges.filter((e: any) => {
+      const d = e.data || e;
+      return (
+        directMatchedNodeIds.has(d.source) ||
+        directMatchedNodeIds.has(d.target) ||
+        (d.reason_text || '').toLowerCase().includes(qLower) ||
+        (d.edge_type || '').toLowerCase().includes(qLower)
+      );
+    });
+
+    const keepNodeIds = new Set(directMatchedNodeIds);
+    matchedEdges.forEach((e: any) => {
+      const d = e.data || e;
+      keepNodeIds.add(d.source);
+      keepNodeIds.add(d.target);
+    });
+
+    filteredNodes = filteredNodes.filter((n: any) => keepNodeIds.has((n.data || n).id));
+    filteredEdges = matchedEdges;
+  }
+
+  const keyCorrelationEdges = filteredEdges
+    .map((e: any) => e.data || e)
+    .filter((d: any) => d.edge_type !== 'PART_OF_EPISODE' && d.edge_type !== 'OBSERVED_AT')
+    .sort((a: any, b: any) => (b.strength || 0) - (a.strength || 0));
 
   useEffect(() => {
     if (!containerRef.current || filteredNodes.length === 0) return;
@@ -416,8 +459,31 @@ export const KnowledgeGraphPage: React.FC = () => {
             <div className="space-y-3">
               <span className="section-label block">Inspector</span>
               <p className="text-muted">
-                Click any node to inspect mentions or ask the Assistant. Click any edge for the &ldquo;Why this link&rdquo; breakdown.
+                Click any node to inspect mentions or ask the Assistant. Click any edge (or select a correlated link below) for the &ldquo;Why this link&rdquo; breakdown.
               </p>
+              {keyCorrelationEdges.length > 0 && (
+                <div className="space-y-1.5 pt-2 border-t border-border">
+                  <span className="section-label block">
+                    {qLower ? 'Matching Correlation Links' : 'Cross-Source Correlation Links'} ({keyCorrelationEdges.length})
+                  </span>
+                  <div className="space-y-1 max-h-56 overflow-y-auto">
+                    {keyCorrelationEdges.slice(0, 15).map((edge: any) => (
+                      <button
+                        key={edge.id}
+                        type="button"
+                        onClick={() => setSelectedEdgeId(edge.id)}
+                        className="w-full text-left p-2 rounded border border-border bg-paper hover:border-amber cursor-pointer space-y-0.5"
+                      >
+                        <div className="flex items-center justify-between gap-1 font-mono text-[10px]">
+                          <span className="font-bold text-amber">{edge.edge_type}</span>
+                          <span className="text-muted">{Math.round((edge.strength || 0) * 100)}%</span>
+                        </div>
+                        <div className="text-[11px] text-ink leading-snug">{edge.reason_text}</div>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
               {entitiesList && entitiesList.length > 0 && (
                 <div className="space-y-1 pt-2 border-t border-border">
                   <span className="section-label block">Quick Select Entity</span>

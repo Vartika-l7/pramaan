@@ -33,6 +33,7 @@ export const ReconstructionPage: React.FC = () => {
   const [filterActor, setFilterActor] = useState('ALL');
   const [filterDate, setFilterDate] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
+  const [onlyHighlights, setOnlyHighlights] = useState(false);
   const [selectedEpisodeId, setSelectedEpisodeId] = useState<string | undefined>(undefined);
   const [replayIdx, setReplayIdx] = useState(0);
 
@@ -113,14 +114,18 @@ export const ReconstructionPage: React.FC = () => {
       laneMode === 'source'
         ? [
             { id: 'whatsapp', content: 'WhatsApp' },
-            { id: 'social_media', content: 'Social Media' },
+            { id: 'social_telegram', content: 'Telegram' },
+            { id: 'social_generic', content: 'Social Media' },
             { id: 'bank_pdf', content: 'Bank PDF' },
             { id: 'bank_csv', content: 'Bank CSV' },
             { id: 'calllog', content: 'Mobile / CDR' },
-            { id: 'cloud', content: 'Cloud' },
+            { id: 'cloud_location', content: 'Cloud GPS' },
+            { id: 'cloud_activity', content: 'Cloud Logs' },
             { id: 'email', content: 'Email' },
             { id: 'network_log', content: 'Network' },
-            { id: 'image', content: 'Media / CCTV' },
+            { id: 'cctv_index', content: 'CCTV Index' },
+            { id: 'cctv_video', content: 'CCTV Video' },
+            { id: 'image', content: 'Images' },
           ]
         : Array.from(new Set(filteredEvents.map((e) => e.actor || 'System'))).map((a) => ({
             id: a,
@@ -168,7 +173,7 @@ export const ReconstructionPage: React.FC = () => {
   }, [filteredEvents, laneMode, anomalies]);
 
   // Plain coordinate canvas projection for Locations (NO map tiles, NO country/state outlines)
-  const observations = sceneData?.spatial_observations || [];
+  const observations = (sceneData?.presence || []).filter((p: any) => p.status === 'established');
   const projectedPoints = useMemo(() => {
     const withCoords = observations.filter((o: any) => typeof o.lat === 'number' && typeof o.lon === 'number');
     if (withCoords.length === 0) return [];
@@ -190,9 +195,34 @@ export const ReconstructionPage: React.FC = () => {
 
   const impossibleTravelIds = new Set(
     (sceneData?.anomalies || [])
-      .filter((a: any) => a.kind === 'impossible_travel')
+      .filter((a: any) => a.kind === 'IMPOSSIBLE_TRAVEL')
       .flatMap((a: any) => a.event_ids || [])
   );
+
+  const reconstructionAnomalies = useMemo(
+    () =>
+      (anomalies || []).filter((a: any) =>
+        ['ANOMALY_CHAT_GAP', 'ANOMALY_OUT_OF_ORDER', 'IMPOSSIBLE_TRAVEL', 'SPATIAL_THREAD'].includes(a.kind)
+      ),
+    [anomalies]
+  );
+
+  const offsetEvents = useMemo(
+    () => (events || []).filter((ev: any) => ev.clock_offset_seconds && ev.clock_offset_seconds !== 0),
+    [events]
+  );
+
+  const anomalyEventIdSet = useMemo(
+    () => new Set((anomalies || []).flatMap((a: any) => a.event_ids || [])),
+    [anomalies]
+  );
+
+  const displayedStepEvents = useMemo(() => {
+    if (!onlyHighlights) return filteredEvents;
+    return filteredEvents.filter(
+      (ev: any) => (ev.clock_offset_seconds && ev.clock_offset_seconds !== 0) || anomalyEventIdSet.has(ev.id)
+    );
+  }, [filteredEvents, onlyHighlights, anomalyEventIdSet]);
 
   return (
     <div className="max-w-7xl mx-auto space-y-5 pb-12">
@@ -253,14 +283,18 @@ export const ReconstructionPage: React.FC = () => {
         >
           <option value="ALL">All sources</option>
           <option value="whatsapp">WhatsApp</option>
-          <option value="social_media">Social Media</option>
+          <option value="social_telegram">Telegram</option>
+          <option value="social_generic">Social Media</option>
           <option value="calllog">Mobile / CDR</option>
           <option value="bank_pdf">Bank PDF</option>
           <option value="bank_csv">Bank CSV</option>
-          <option value="cloud">Cloud</option>
+          <option value="cloud_location">Cloud Location</option>
+          <option value="cloud_activity">Cloud Activity</option>
           <option value="email">Email</option>
           <option value="network_log">Network</option>
-          <option value="image">Media / CCTV</option>
+          <option value="cctv_index">CCTV Index</option>
+          <option value="cctv_video">CCTV Video</option>
+          <option value="image">Images</option>
         </select>
         <select
           value={filterActor}
@@ -356,7 +390,7 @@ export const ReconstructionPage: React.FC = () => {
               {/* Points + Accuracy circles */}
               {projectedPoints.map((pt: any, i: number) => {
                 const isActive =
-                  currentStep?.location && pt.place_name && currentStep.location.includes(pt.place_name);
+                  currentStep?.place_name && pt.place_name && currentStep.place_name.includes(pt.place_name);
                 const isImpossible = impossibleTravelIds.has(pt.source_event_id);
                 return (
                   <g
@@ -470,10 +504,24 @@ export const ReconstructionPage: React.FC = () => {
                     </div>
                     <div>
                       <span className="section-label block">Where</span>
-                      <span className="font-medium text-ink">{currentStep.location || 'not established'}</span>
+                      <span className="font-medium text-ink">{currentStep.place_name || 'not established'}</span>
                     </div>
                   </div>
-                  <p className="text-ink pt-1 border-t border-border">{currentStep.summary || currentStep.text}</p>
+                  {currentStep.clock_offset_seconds !== 0 && currentStep.clock_offset_seconds !== undefined && (
+                    <div className="font-mono text-[11px] text-amber bg-amber-light border border-amber-border rounded px-2.5 py-1">
+                      Clock offset applied: {currentStep.clock_offset_seconds > 0 ? `+${currentStep.clock_offset_seconds}s` : `${currentStep.clock_offset_seconds}s`} ({currentStep.offset_source || 'calibrated'}) · Original: {currentStep.ts_original}
+                    </div>
+                  )}
+                  <p className="text-ink pt-1 border-t border-border">{currentStep.text || currentStep.summary || currentStep.kind}</p>
+                  {currentStep.anomalies?.length > 0 && (
+                    <div className="flex flex-wrap gap-1.5 pt-1">
+                      {currentStep.anomalies.map((an: any) => (
+                        <span key={an.id} className="font-mono text-[10px] px-2 py-0.5 rounded bg-vermilion-light text-vermilion border border-vermilion/40">
+                          {an.kind}
+                        </span>
+                      ))}
+                    </div>
+                  )}
                 </div>
               )}
             </div>
@@ -481,17 +529,131 @@ export const ReconstructionPage: React.FC = () => {
         </section>
       </div>
 
+      {/* Key Timeline & Spatio-Temporal Anomalies + Clock Offsets + Episodes */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
+        <section className="lg:col-span-7 bg-panel border border-border rounded p-4 space-y-3">
+          <div className="flex items-center justify-between border-b border-border pb-2">
+            <span className="section-label flex items-center gap-1.5">
+              <AlertTriangle className="w-3.5 h-3.5 text-vermilion" />
+              Sequence Anomalies &amp; Clock Offsets ({reconstructionAnomalies.length + offsetEvents.length})
+            </span>
+          </div>
+          {reconstructionAnomalies.length === 0 && offsetEvents.length === 0 ? (
+            <EmptyState title="No temporal/spatial anomalies" description="Run the pipeline to detect silence gaps, out-of-order timestamps, clock offsets, and impossible travel." />
+          ) : (
+            <div className="space-y-2 max-h-64 overflow-y-auto text-xs">
+              {offsetEvents.map((ev: any) => (
+                <div
+                  key={`off-${ev.id}`}
+                  onClick={() => {
+                    setSelectedEventId(ev.id);
+                    openSourceViewer(ev.id);
+                  }}
+                  className="p-2.5 bg-amber-light border border-amber-border rounded flex items-center justify-between gap-3 cursor-pointer"
+                >
+                  <div>
+                    <div className="font-mono text-[11px] font-bold text-amber">
+                      CLOCK_OFFSET_APPLIED ({ev.clock_offset_seconds > 0 ? `+${ev.clock_offset_seconds}s` : `${ev.clock_offset_seconds}s`})
+                    </div>
+                    <div className="text-ink mt-0.5">
+                      {ev.text} · <span className="font-mono">orig {ev.ts_original} → {ev.ts_utc}</span>
+                    </div>
+                  </div>
+                  {ev.exhibit_id && <ExhibitChip exhibitId={ev.exhibit_id} eventId={ev.id} />}
+                </div>
+              ))}
+              {reconstructionAnomalies.map((a: any) => (
+                <div
+                  key={a.id}
+                  onClick={() => {
+                    if (a.event_ids?.[0]) {
+                      setSelectedEventId(a.event_ids[0]);
+                      openSourceViewer(a.event_ids[0]);
+                    }
+                  }}
+                  className={`p-2.5 rounded border flex items-center justify-between gap-3 cursor-pointer ${
+                    a.kind === 'IMPOSSIBLE_TRAVEL'
+                      ? 'bg-vermilion-light border-vermilion'
+                      : 'bg-paper border-border hover:border-amber'
+                  }`}
+                >
+                  <div>
+                    <div className="flex items-center gap-2 font-mono text-[11px]">
+                      <span className={`font-bold ${a.kind === 'IMPOSSIBLE_TRAVEL' ? 'text-vermilion' : 'text-amber'}`}>
+                        {a.kind}
+                      </span>
+                      <span className="text-muted">({a.severity})</span>
+                    </div>
+                    <div className="text-ink mt-0.5">{a.description}</div>
+                  </div>
+                  {a.exhibit_id && <ExhibitChip exhibitId={a.exhibit_id} eventId={a.event_ids?.[0]} />}
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
+
+        <section className="lg:col-span-5 bg-panel border border-border rounded p-4 space-y-3">
+          <div className="flex items-center justify-between border-b border-border pb-2">
+            <span className="section-label">Generated Episodes ({sequenceData?.episode_count || 0})</span>
+            <a
+              href="/api/sequence/export?format=markdown"
+              target="_blank"
+              rel="noreferrer"
+              className="font-mono text-[11px] text-amber hover:underline"
+            >
+              Export Markdown
+            </a>
+          </div>
+          {!(sequenceData?.episodes?.length) ? (
+            <EmptyState title="No episodes generated" description="Click Regenerate Sequence above to segment events into episodes." />
+          ) : (
+            <div className="space-y-2 max-h-64 overflow-y-auto text-xs">
+              {sequenceData.episodes.map((ep: any) => (
+                <div
+                  key={ep.id}
+                  onClick={() => setSelectedEpisodeId(ep.id)}
+                  className={`p-2.5 rounded border cursor-pointer transition-colors duration-150 ${
+                    selectedEpisodeId === ep.id ? 'bg-amber-light border-amber' : 'bg-paper border-border hover:border-amber'
+                  }`}
+                >
+                  <div className="flex items-center justify-between font-mono text-[11px]">
+                    <span className="font-bold text-ink">{ep.id}</span>
+                    <span className="text-muted">{ep.steps?.length || 0} steps</span>
+                  </div>
+                  <div className="font-medium text-ink mt-0.5">{ep.title}</div>
+                  <div className="text-[11px] text-muted mt-0.5 font-mono">
+                    {ep.start_ts_utc?.slice(0, 16)} → {ep.end_ts_utc?.slice(0, 16)}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
+      </div>
+
       {/* Synced Event & Episode List (with Original vs Corrected Time) */}
       <section className="bg-panel border border-border rounded p-4 space-y-3">
-        <div className="flex items-center justify-between border-b border-border pb-2">
-          <span className="section-label">Chronological Steps &amp; Clock Offsets</span>
-          <span className="font-mono text-[11px] text-muted">Showing up to 50 matching events</span>
+        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border pb-2">
+          <span className="section-label">Chronological Steps &amp; Clock Offsets ({displayedStepEvents.length})</span>
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={() => setOnlyHighlights((v) => !v)}
+              className={`px-2.5 py-1 rounded border text-[11px] font-medium cursor-pointer ${
+                onlyHighlights ? 'bg-amber text-white border-amber' : 'bg-paper text-ink border-border'
+              }`}
+            >
+              {onlyHighlights ? 'Showing Anomalies & Clock Offsets' : 'Show Anomalies & Clock Offsets Only'}
+            </button>
+            <span className="font-mono text-[11px] text-muted">Showing up to 100 events</span>
+          </div>
         </div>
-        {filteredEvents.length === 0 ? (
+        {displayedStepEvents.length === 0 ? (
           <EmptyState title="No matching events" description="Adjust filters above to view events." />
         ) : (
           <div className="divide-y divide-border max-h-80 overflow-y-auto text-xs">
-            {filteredEvents.slice(0, 50).map((ev: any) => {
+            {displayedStepEvents.slice(0, 100).map((ev: any) => {
               const hasOffset = ev.clock_offset_seconds && ev.clock_offset_seconds !== 0;
               const isSelected = selectedEventId === ev.id;
               return (

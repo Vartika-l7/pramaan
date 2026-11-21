@@ -10,8 +10,13 @@ from __future__ import annotations
 
 import json
 import sqlite3
+import sys
 from pathlib import Path
 from typing import Any, Dict, List
+
+ROOT = Path(__file__).resolve().parent.parent
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
 
 from backend.app.db import SCHEMA_SQL
 from backend.app.ingest.service import ingest_file
@@ -25,7 +30,6 @@ from backend.app.authenticity.statement_checks import verify_statement_arithmeti
 from backend.app.sequence.generator import generate_event_sequence
 from backend.app.assistant.engine import ask_assistant
 
-ROOT = Path(__file__).resolve().parent.parent
 DATA_DIR = ROOT / "data" / "case_alpha"
 EVAL_PATH = ROOT / "tests" / "assistant_eval.json"
 

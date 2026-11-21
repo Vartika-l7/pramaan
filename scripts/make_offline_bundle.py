@@ -154,15 +154,21 @@ def build_offline_bundle(output_dir: Path, skip_build: bool = False, skip_wheels
         print("[2/4] Skipping wheel download (--skip-wheels).")
 
     # 3. Copy application files
-    print("[3/4] Copying backend, verifier, scripts, data, tests, and docs...")
+    print("[3/4] Copying backend, verifier, scripts, data, tests, docs, and static frontend...")
     app_dir = output_dir / "app"
     app_dir.mkdir(parents=True, exist_ok=True)
     for folder in ("backend", "verifier", "scripts", "data", "tests", "docs"):
         src = ROOT / folder
         if src.exists():
             shutil.copytree(src, app_dir / folder, ignore=_ignore_runtime_artifacts)
-    # Remove runtime evidence_store/packages contents inside bundle app
-    for clean_sub in (app_dir / "backend" / "evidence_store", app_dir / "backend" / "case_data" / "packages"):
+    # Include pre-built static frontend inside app/frontend/dist so uvicorn & check_offline.py work out of the box
+    shutil.copytree(dist_src, app_dir / "frontend" / "dist")
+    # Remove runtime evidence_store/packages/keys contents inside bundle app
+    for clean_sub in (
+        app_dir / "backend" / "evidence_store",
+        app_dir / "backend" / "case_data",
+        app_dir / "backend" / "keys",
+    ):
         if clean_sub.exists():
             shutil.rmtree(clean_sub)
             clean_sub.mkdir(parents=True, exist_ok=True)
