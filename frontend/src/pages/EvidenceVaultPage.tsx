@@ -2,25 +2,12 @@ import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   Upload,
-  FolderArchive,
-  FileText,
-  Clock,
-  Copy,
-  Check,
-  ChevronRight,
-  Shield,
-  Layers,
   X,
   Lock,
-  Tag,
-  Hash,
-  Fingerprint,
-  Image as ImageIcon,
-  FileSpreadsheet,
+  ShieldCheck,
   AlertTriangle,
-  CheckCircle2,
-  XCircle,
-  Eye,
+  FileSearch,
+  RefreshCw,
 } from 'lucide-react';
 import {
   fetchEvidenceList,
@@ -28,35 +15,39 @@ import {
   fetchEvidenceDetail,
   fetchImageAuthenticity,
   fetchStatementCheck,
+  computeBrowserSha256,
 } from '../lib/api';
-import { Evidence, CustodyEvent } from '../types';
+import { WorkspaceHeader } from '../components/ui/WorkspaceHeader';
 import { TierBadge } from '../components/ui/TierBadge';
+import { HashChip } from '../components/ui/HashChip';
+import { ExhibitChip } from '../components/evidence/ExhibitChip';
+import { SkeletonBlock, EmptyState, ErrorState } from '../components/ui/Skeleton';
 
-const SOURCE_TYPE_STYLES: Record<string, string> = {
-  whatsapp: 'bg-cobalt-light text-cobalt',
-  WHATSAPP: 'bg-cobalt-light text-cobalt',
-  pdf: 'bg-lavender-light text-lavender-dark',
-  PDF: 'bg-lavender-light text-lavender-dark',
-  csv: 'bg-lime-light text-lime-dark',
-  CSV: 'bg-lime-light text-lime-dark',
-  cdr: 'bg-ochre-light text-ochre-dark',
-  CDR: 'bg-ochre-light text-ochre-dark',
-  image: 'bg-tomato-light text-tomato',
-  IMAGE: 'bg-tomato-light text-tomato',
-};
+const SOURCE_FAMILIES: Array<{ id: string; label: string; types: string[] }> = [
+  { id: 'ALL', label: 'All Families', types: [] },
+  { id: 'mobile', label: 'Mobile', types: ['calllog'] },
+  { id: 'social', label: 'Social Media', types: ['whatsapp', 'social_media'] },
+  { id: 'cctv', label: 'CCTV / Media', types: ['image', 'cctv'] },
+  { id: 'cloud', label: 'Cloud', types: ['cloud'] },
+  { id: 'financial', label: 'Financial', types: ['bank_pdf', 'bank_csv'] },
+  { id: 'email', label: 'Email', types: ['email'] },
+  { id: 'network', label: 'Network', types: ['network_log'] },
+];
 
-function getSourceTypeStyle(type: string) {
-  return SOURCE_TYPE_STYLES[type] || SOURCE_TYPE_STYLES[type?.toLowerCase()] || 'bg-ivory-dark text-ink-secondary';
+function familyForType(sourceType: string): string {
+  const found = SOURCE_FAMILIES.find((f) => f.types.includes(sourceType));
+  return found ? found.label : sourceType;
 }
 
 export const EvidenceVaultPage: React.FC = () => {
   const queryClient = useQueryClient();
   const [selectedExhibit, setSelectedExhibit] = useState<string | null>(null);
-  const [drawerTab, setDrawerTab] = useState<'custody' | 'authenticity'>('custody');
-  const [copiedHash, setCopiedHash] = useState<string | null>(null);
+  const [drawerTab, setDrawerTab] = useState<'custody' | 'parse' | 'authenticity' | 'mentions'>('custody');
+  const [familyFilter, setFamilyFilter] = useState<string>('ALL');
   const [isDragging, setIsDragging] = useState(false);
+  const [rehashMsg, setRehashMsg] = useState<string | null>(null);
 
-  const { data: exhibits, isLoading } = useQuery({
+  const { data: exhibits, isLoading, isError, refetch } = useQuery({
     queryKey: ['evidenceList'],
     queryFn: fetchEvidenceList,
   });
@@ -67,7 +58,6 @@ export const EvidenceVaultPage: React.FC = () => {
     enabled: !!selectedExhibit,
   });
 
-  // Folded Authenticity Queries for the selected exhibit
   const isImageExhibit = detailData?.source_type === 'image';
   const isStatementExhibit = detailData?.source_type === 'bank_pdf' || detailData?.source_type === 'bank_csv';
 
@@ -94,8 +84,7 @@ export const EvidenceVaultPage: React.FC = () => {
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault();
     setIsDragging(false);
-    const files = Array.from(e.dataTransfer.files);
-    files.forEach((file) => uploadMutation.mutate(file));
+    Array.from(e.dataTransfer.files).forEach((file) => uploadMutation.mutate(file));
   };
 
   const handleFileInput = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -104,42 +93,39 @@ export const EvidenceVaultPage: React.FC = () => {
     }
   };
 
-  const copyToClipboard = (text: string) => {
-    navigator.clipboard.writeText(text);
-    setCopiedHash(text);
-    setTimeout(() => setCopiedHash(null), 2000);
+  const handleBrowserRehash = async (e: React.ChangeEvent<HTMLInputElement>, expectedHash: string) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const computed = await computeBrowserSha256(file);
+    if (computed.toLowerCase() === expectedHash.toLowerCase()) {
+      setRehashMsg(`MATCH: Browser SHA-256 (${computed.slice(0, 8)}…${computed.slice(-4)}) matches stored digest.`);
+    } else {
+      setRehashMsg(`MISMATCH: Browser computed ${computed.slice(0, 8)}…${computed.slice(-4)}, expected ${expectedHash.slice(0, 8)}…${expectedHash.slice(-4)}.`);
+    }
   };
 
+  const filteredExhibits = (exhibits || []).filter((ex) => {
+    if (familyFilter === 'ALL') return true;
+    const fam = SOURCE_FAMILIES.find((f) => f.id === familyFilter);
+    return fam ? fam.types.includes(ex.source_type) : true;
+  });
+
   return (
-    <div className="space-y-8 max-w-7xl mx-auto pb-12 font-sans">
-      {/* Editorial Header */}
-      <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 border-b border-border pb-6">
-        <div>
-          <div className="flex items-center gap-2 mb-2">
-            <span className="font-sans text-xs font-bold uppercase tracking-wider text-cobalt bg-cobalt-light px-2.5 py-1 rounded-full">
-              Digital Evidence Vault
-            </span>
-            <span className="text-ink-tertiary">·</span>
-            <span className="font-sans text-xs text-ink-secondary">
-              Immutable Content-Addressed Storage
-            </span>
-          </div>
-          <h1 className="font-serif text-3xl sm:text-4xl font-bold text-ink tracking-tight">
-            Evidence Ingest & Custody Chain
-          </h1>
-          <p className="text-sm text-ink-secondary mt-1 max-w-2xl leading-relaxed">
-            All exhibits are hashed with SHA-256 during streaming upload, preserved read-only under hash digest, and linked to the cryptographic custody ledger.
-          </p>
-        </div>
+    <div className="max-w-6xl mx-auto space-y-6 pb-12">
+      <WorkspaceHeader
+        workspace="evidence"
+        title="Evidence Vault"
+        subtitle="Content-addressed read-only exhibit storage. Files are SHA-256 hashed in streaming chunks at ingest and sealed in the custody chain."
+        actions={
+          <label className="inline-flex items-center gap-2 px-3.5 py-2 bg-teal text-white text-xs font-semibold rounded cursor-pointer hover:opacity-90 transition-opacity duration-150">
+            <Upload className="w-3.5 h-3.5" aria-hidden="true" />
+            <span>{uploadMutation.isPending ? 'Hashing…' : 'Upload Exhibit'}</span>
+            <input type="file" multiple onChange={handleFileInput} className="hidden" />
+          </label>
+        }
+      />
 
-        <label className="flex items-center gap-2 px-4 py-2 bg-cobalt hover:bg-cobalt-dark text-white text-sm font-sans font-medium rounded-lg transition-colors cursor-pointer shadow-xs self-start md:self-auto">
-          <Upload className="w-4 h-4" />
-          <span>Upload Exhibit</span>
-          <input type="file" multiple onChange={handleFileInput} className="hidden" />
-        </label>
-      </div>
-
-      {/* Drag & Drop Archival Dropzone */}
+      {/* Compact Drag-and-Drop Bar */}
       <div
         onDragOver={(e) => {
           e.preventDefault();
@@ -147,264 +133,261 @@ export const EvidenceVaultPage: React.FC = () => {
         }}
         onDragLeave={() => setIsDragging(false)}
         onDrop={handleDrop}
-        className={`bg-surface-raised border-2 border-dashed rounded-xl p-8 text-center transition-colors ${
-          isDragging ? 'border-cobalt bg-cobalt-light' : 'border-border hover:border-cobalt'
+        className={`border border-dashed rounded px-5 py-4 flex flex-col sm:flex-row items-center justify-between gap-3 transition-colors duration-150 ${
+          isDragging ? 'border-teal bg-teal-light' : 'border-border-strong bg-panel hover:border-teal'
         }`}
       >
-        <FolderArchive className="w-9 h-9 text-cobalt mx-auto mb-2 opacity-80" />
-        <div className="font-sans text-ink font-semibold text-sm">
-          Drop forensic exhibits here to ingest
+        <div className="text-xs text-muted">
+          <span className="font-semibold text-ink">Drag and drop exhibits here</span> to compute SHA-256 on ingest (mobile, social media, CCTV, cloud, financial, email, network).
         </div>
-        <p className="text-xs text-ink-secondary mt-1 max-w-lg mx-auto">
-          Supports WhatsApp logs, Bank Statements (PDF/CSV), CDR Call Logs, and Images.
-        </p>
+        {uploadMutation.data && (
+          <div className="flex items-center gap-2 text-xs">
+            <span className="text-approved font-semibold">Ingested:</span>
+            <HashChip hash={uploadMutation.data.sha256} />
+          </div>
+        )}
       </div>
 
-      {/* Registered Exhibits Ledger Table */}
-      <div className="bg-surface-raised rounded-xl border border-border overflow-hidden">
-        <div className="px-5 py-3 border-b border-border bg-ivory-dark flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Tag className="w-3.5 h-3.5 text-cobalt" />
-            <span className="font-sans text-xs font-bold uppercase tracking-wider text-ink">
-              Registered Evidence Ledger ({exhibits?.length || 0})
-            </span>
-          </div>
-          <span className="text-xs font-mono text-ink-secondary bg-surface px-2 py-0.5 rounded border border-border">
-            SHA-256 Content-Addressed
-          </span>
-        </div>
+      {/* Source Family Filters */}
+      <div className="flex flex-wrap items-center gap-1.5" role="group" aria-label="Filter by source family">
+        {SOURCE_FAMILIES.map((fam) => (
+          <button
+            key={fam.id}
+            type="button"
+            onClick={() => setFamilyFilter(fam.id)}
+            className={`px-3 py-1 rounded text-xs font-medium border transition-colors duration-150 cursor-pointer ${
+              familyFilter === fam.id
+                ? 'bg-teal text-white border-teal'
+                : 'bg-panel text-muted border-border hover:text-ink hover:border-border-strong'
+            }`}
+          >
+            {fam.label}
+          </button>
+        ))}
+      </div>
 
-        <div className="overflow-x-auto">
+      {/* Dense Exhibits Table */}
+      {isError ? (
+        <ErrorState message="Failed to load exhibits." onRetry={() => refetch()} />
+      ) : isLoading ? (
+        <SkeletonBlock className="h-64" />
+      ) : filteredExhibits.length === 0 ? (
+        <EmptyState
+          title="No exhibits match this filter"
+          description="Upload forensic files above or switch the source family filter to view registered exhibits."
+        />
+      ) : (
+        <div className="bg-panel border border-border rounded overflow-x-auto">
           <table className="w-full text-left border-collapse text-xs">
-            <thead className="bg-ivory-dark text-ink-secondary text-2xs font-sans font-semibold uppercase tracking-wider select-none">
+            <thead className="bg-paper-subtle border-b border-border text-[11px] font-semibold uppercase tracking-wider text-muted">
               <tr>
-                <th className="py-2.5 px-4">Exhibit Tag</th>
-                <th className="py-2.5 px-4">Filename</th>
-                <th className="py-2.5 px-4">Source Type</th>
-                <th className="py-2.5 px-4">File Size</th>
-                <th className="py-2.5 px-4">SHA-256 Digest</th>
-                <th className="py-2.5 px-4">Parse Status</th>
-                <th className="py-2.5 px-4 text-right">Details</th>
+                <th className="py-2.5 px-3">Exhibit ID</th>
+                <th className="py-2.5 px-3">Filename</th>
+                <th className="py-2.5 px-3">Family / Type</th>
+                <th className="py-2.5 px-3">Size</th>
+                <th className="py-2.5 px-3">SHA-256</th>
+                <th className="py-2.5 px-3">Received (UTC)</th>
+                <th className="py-2.5 px-3">Parse Status</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-border">
-              {isLoading ? (
-                <tr>
-                  <td colSpan={7} className="py-8 text-center text-ink-secondary">
-                    Loading evidence exhibits...
+            <tbody>
+              {filteredExhibits.map((ex) => (
+                <tr
+                  key={ex.id}
+                  onClick={() => {
+                    setSelectedExhibit(ex.id);
+                    setRehashMsg(null);
+                  }}
+                  className={`ledger-row cursor-pointer ${selectedExhibit === ex.id ? 'bg-teal-light/60' : ''}`}
+                >
+                  <td className="py-2.5 px-3">
+                    <ExhibitChip exhibitId={ex.exhibit_id} />
+                  </td>
+                  <td className="py-2.5 px-3 font-medium text-ink">{ex.filename}</td>
+                  <td className="py-2.5 px-3 text-muted">
+                    {familyForType(ex.source_type)} <span className="font-mono text-[11px]">({ex.source_type})</span>
+                  </td>
+                  <td className="py-2.5 px-3 font-mono text-muted">
+                    {(ex.size_bytes / 1024).toFixed(1)} KB
+                  </td>
+                  <td className="py-2.5 px-3" onClick={(e) => e.stopPropagation()}>
+                    <HashChip hash={ex.sha256} />
+                  </td>
+                  <td className="py-2.5 px-3 font-mono text-muted">
+                    {ex.received_at_utc?.slice(0, 19).replace('T', ' ')}
+                  </td>
+                  <td className="py-2.5 px-3">
+                    <span className="font-mono text-[11px] px-2 py-0.5 rounded border border-teal-border bg-teal-light text-teal font-semibold">
+                      {ex.parse_status || 'PENDING'}
+                    </span>
                   </td>
                 </tr>
-              ) : exhibits?.length === 0 ? (
-                <tr>
-                  <td colSpan={7} className="py-8 text-center text-ink-secondary">
-                    No exhibits ingested yet.
-                  </td>
-                </tr>
-              ) : (
-                exhibits?.map((ex) => (
-                  <tr
-                    key={ex.id}
-                    onClick={() => {
-                      setSelectedExhibit(ex.id);
-                      setDrawerTab('custody');
-                    }}
-                    className="hover:bg-ivory cursor-pointer transition-colors group"
-                  >
-                    <td className="py-3 px-4 font-mono font-bold text-ink">
-                      {ex.exhibit_id}
-                    </td>
-                    <td className="py-3 px-4 font-medium text-ink">
-                      {ex.filename}
-                    </td>
-                    <td className="py-3 px-4">
-                      <span className={`px-2 py-0.5 rounded-full font-mono text-2xs uppercase ${getSourceTypeStyle(ex.source_type)}`}>
-                        {ex.source_type}
-                      </span>
-                    </td>
-                    <td className="py-3 px-4 font-mono text-ink-secondary">
-                      {(ex.size_bytes / 1024).toFixed(1)} KB
-                    </td>
-                    <td className="py-3 px-4 font-mono text-2xs text-ink-secondary">
-                      <span className="bg-surface px-1.5 py-0.5 rounded border border-border">
-                        {ex.sha256.slice(0, 16)}...{ex.sha256.slice(-8)}
-                      </span>
-                    </td>
-                    <td className="py-3 px-4">
-                      <span className="font-mono text-2xs font-semibold text-lime-dark bg-lime-light px-2 py-0.5 rounded-full border border-lime-dark/30">
-                        {ex.parse_status || 'PARSED'}
-                      </span>
-                    </td>
-                    <td className="py-3 px-4 text-right">
-                      <ChevronRight className="w-4 h-4 text-ink-tertiary group-hover:text-cobalt inline-block transition-colors" />
-                    </td>
-                  </tr>
-                ))
-              )}
+              ))}
             </tbody>
           </table>
         </div>
-      </div>
+      )}
 
-      {/* Exhibit Custody & Folded Authenticity Drawer Slide-over */}
+      {/* Detail Drawer */}
       {selectedExhibit && (
-        <div className="fixed inset-0 z-50 flex justify-end bg-black/40 backdrop-blur-xs">
-          <div className="w-full max-w-xl bg-surface-raised h-full shadow-2xl border-l border-border flex flex-col animate-in slide-in-from-right duration-200">
-            {/* Header */}
-            <div className="h-14 border-b border-border px-6 flex items-center justify-between bg-ivory-dark">
+        <div className="fixed inset-0 z-50 flex justify-end bg-ink/35" role="dialog" aria-label="Exhibit Details">
+          <div className="w-full max-w-2xl bg-panel h-full border-l border-border-strong flex flex-col">
+            <div className="h-14 border-b border-border px-5 flex items-center justify-between bg-paper">
               <div className="flex items-center gap-2.5">
-                <FileText className="w-4 h-4 text-cobalt" />
-                <h3 className="font-serif font-bold text-base text-ink">
-                  Exhibit Dossier · {detailData?.exhibit_id}
-                </h3>
+                <span className="exhibit-id">{detailData?.exhibit_id || 'EXH'}</span>
+                <h2 className="font-serif text-base font-bold text-ink truncate">
+                  {detailData?.filename || 'Loading exhibit…'}
+                </h2>
               </div>
               <button
                 type="button"
                 onClick={() => setSelectedExhibit(null)}
-                className="p-1.5 hover:bg-border rounded-lg text-ink-secondary hover:text-ink cursor-pointer transition-colors"
+                aria-label="Close Exhibit Drawer"
+                className="p-1.5 rounded hover:bg-paper-subtle text-muted hover:text-ink cursor-pointer"
               >
-                <X className="w-5 h-5" />
+                <X className="w-4 h-4" />
               </button>
             </div>
 
-            {/* Folded Tab Bar */}
-            <div className="px-6 border-b border-border bg-surface flex gap-6 text-xs font-sans">
-              <button
-                type="button"
-                onClick={() => setDrawerTab('custody')}
-                className={`py-2.5 font-semibold border-b-2 cursor-pointer transition-colors ${
-                  drawerTab === 'custody'
-                    ? 'border-cobalt text-cobalt'
-                    : 'border-transparent text-ink-secondary hover:text-ink'
-                }`}
-              >
-                Chain of Custody
-              </button>
-              {(isImageExhibit || isStatementExhibit) && (
+            {/* Re-hash in browser bar */}
+            {detailData && (
+              <div className="px-5 py-3 bg-paper-subtle border-b border-border flex flex-wrap items-center justify-between gap-2 text-xs">
+                <div className="flex items-center gap-2">
+                  <span className="section-label">Stored Digest:</span>
+                  <HashChip hash={detailData.sha256} />
+                </div>
+                <label className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded border border-teal text-teal bg-panel hover:bg-teal-light font-medium cursor-pointer transition-colors duration-150">
+                  <RefreshCw className="w-3 h-3" aria-hidden="true" />
+                  <span>Re-hash in browser</span>
+                  <input
+                    type="file"
+                    onChange={(e) => handleBrowserRehash(e, detailData.sha256)}
+                    className="hidden"
+                  />
+                </label>
+                {rehashMsg && (
+                  <p className={`w-full font-mono text-xs ${rehashMsg.startsWith('MATCH') ? 'text-approved' : 'text-vermilion'}`}>
+                    {rehashMsg}
+                  </p>
+                )}
+              </div>
+            )}
+
+            {/* Tabs */}
+            <div className="flex border-b border-border px-5 gap-4 bg-paper text-xs font-medium">
+              {[
+                { id: 'custody', label: 'Chain of custody' },
+                { id: 'parse', label: 'Parse report' },
+                { id: 'authenticity', label: 'Authenticity' },
+                { id: 'mentions', label: 'Mentions' },
+              ].map((t) => (
                 <button
+                  key={t.id}
                   type="button"
-                  onClick={() => setDrawerTab('authenticity')}
-                  className={`py-2.5 font-semibold border-b-2 cursor-pointer transition-colors ${
-                    drawerTab === 'authenticity'
-                      ? 'border-cobalt text-cobalt'
-                      : 'border-transparent text-ink-secondary hover:text-ink'
+                  onClick={() => setDrawerTab(t.id as any)}
+                  className={`py-2.5 border-b-2 transition-colors duration-150 cursor-pointer ${
+                    drawerTab === t.id
+                      ? 'border-teal text-teal font-semibold'
+                      : 'border-transparent text-muted hover:text-ink'
                   }`}
                 >
-                  Authenticity &amp; Forensics
+                  {t.label}
                 </button>
-              )}
+              ))}
             </div>
 
-            {/* Body */}
-            <div className="p-6 flex-1 overflow-y-auto space-y-5">
+            {/* Tab Content */}
+            <div className="flex-1 overflow-y-auto p-5 space-y-4 text-xs">
               {detailLoading ? (
-                <div className="text-xs font-mono text-ink-secondary text-center py-12">
-                  Querying SQLite custody logs...
-                </div>
+                <SkeletonBlock className="h-40" />
               ) : drawerTab === 'custody' ? (
-                <>
-                  <div className="bg-ivory rounded-xl p-4 border border-border space-y-2 text-xs">
-                    <div className="flex items-center justify-between border-b border-border pb-2">
-                      <span className="font-sans text-ink-secondary">Filename:</span>
-                      <span className="font-semibold text-ink font-sans">{detailData?.filename}</span>
-                    </div>
-                    <div className="border-b border-border pb-2">
-                      <div className="font-sans text-ink-secondary mb-1">SHA-256 Digest:</div>
-                      <div className="font-mono text-2xs text-ink-secondary break-all select-all bg-surface p-2 rounded-lg border border-border">
-                        {detailData?.sha256}
-                      </div>
-                    </div>
-                    <div>
-                      <div className="font-sans text-ink-secondary mb-1">Read-Only Disk Location:</div>
-                      <div className="font-mono text-2xs text-ink-tertiary break-all">
-                        {detailData?.stored_path}
-                      </div>
-                    </div>
-                  </div>
-
-                  <div>
-                    <div className="flex items-center justify-between mb-3">
-                      <h4 className="font-sans text-xs font-bold uppercase tracking-wider text-ink flex items-center gap-1.5">
-                        <Lock className="w-3.5 h-3.5 text-lime-dark" />
-                        Append-Only Custody Log (Hash-Chained)
-                      </h4>
-                      <span className="text-2xs font-mono text-lime-dark bg-lime-light px-2 py-0.5 rounded border border-lime-dark/30 font-bold">
-                        VERIFIED
-                      </span>
-                    </div>
-
-                    <div className="space-y-2.5">
-                      {detailData?.custody_events?.map((ev) => (
-                        <div
-                          key={ev.seq}
-                          className="bg-surface border border-border rounded-lg p-3 text-xs font-mono space-y-1.5"
-                        >
-                          <div className="flex items-center justify-between">
-                            <span className="font-bold text-ink">
-                              Seq #{ev.seq} · {ev.action}
-                            </span>
-                            <span className="text-2xs text-ink-secondary bg-ivory px-2 py-0.5 rounded border border-border">
-                              {ev.actor}
-                            </span>
-                          </div>
-                          <div className="text-2xs text-ink-tertiary">
-                            Prev Hash: <span className="text-ink-secondary">{ev.prev_hash ? `${ev.prev_hash.slice(0, 16)}...` : '00000000 (GENESIS)'}</span>
-                          </div>
-                          <div className="text-2xs text-ink-tertiary">
-                            Entry Hash: <span className="text-ink font-semibold">{ev.entry_hash?.slice(0, 16)}...</span>
-                          </div>
-                          <div className="text-2xs text-ink-tertiary pt-1 border-t border-border">
-                            UTC: {ev.ts_utc}
-                          </div>
+                <div className="space-y-2">
+                  {(detailData?.custody_events || []).map((c: any) => (
+                    <div key={c.seq} className="p-3 bg-paper border border-border rounded font-mono flex items-start justify-between">
+                      <div>
+                        <div className="font-bold text-ink">
+                          <Lock className="w-3 h-3 inline mr-1.5 text-teal" />
+                          #{c.seq} {c.action}
                         </div>
-                      ))}
-                    </div>
-                  </div>
-                </>
-              ) : (
-                /* Folded Authenticity Panel */
-                <div className="space-y-4">
-                  {isImageExhibit && imageData && (
-                    <div className="space-y-4">
-                      <div className="p-3.5 rounded-lg border border-border bg-surface text-xs space-y-2">
-                        <span className="font-bold uppercase tracking-wider text-ink block">EXIF Metadata Analysis</span>
-                        <div className="grid grid-cols-2 gap-2 text-2xs">
-                          <div>Software: <span className="font-semibold text-ink">{imageData.exif_software || 'None'}</span></div>
-                          <div>Perceptual Hash: <span className="font-mono text-ink">{imageData.phash || 'N/A'}</span></div>
-                        </div>
-                        {imageData.reused_elsewhere && (
-                          <div className="p-2 rounded bg-tomato-light border border-tomato text-tomato text-2xs font-bold">
-                            Perceptual Hash Reused Across Multiple Exhibits!
-                          </div>
-                        )}
+                        <div className="text-[11px] text-muted mt-1">Actor: {c.actor} · Hash: {c.entry_hash?.slice(0, 12)}…</div>
                       </div>
-                      {imageData.ela_available && (
-                        <div className="p-3.5 rounded-lg border border-border bg-surface text-xs space-y-2">
-                          <span className="font-bold uppercase tracking-wider text-ink block">Error Level Analysis (ELA)</span>
-                          <p className="text-2xs text-ink-secondary">Hotspot Ratio: {(imageData.hotspot_ratio * 100).toFixed(2)}%</p>
-                          {imageData.ela_preview_url && (
-                            <img src={imageData.ela_preview_url} alt="ELA Preview" className="w-full rounded border border-border max-h-48 object-contain bg-black" />
-                          )}
-                        </div>
-                      )}
+                      <span className="text-[11px] text-muted">{c.ts_utc?.slice(0, 19).replace('T', ' ')}</span>
                     </div>
-                  )}
-
-                  {isStatementExhibit && statementData && (
-                    <div className="p-3.5 rounded-lg border border-border bg-surface text-xs space-y-3">
-                      <span className="font-bold uppercase tracking-wider text-ink block">Bank Statement Arithmetic Audit</span>
-                      <div className="flex items-center justify-between text-2xs">
-                        <span>Balance Arithmetic:</span>
-                        <span className={`font-bold ${statementData.math_consistent ? 'text-lime-dark' : 'text-tomato'}`}>
-                          {statementData.math_consistent ? 'CONSISTENT' : 'DISCREPANCY DETECTED'}
-                        </span>
-                      </div>
-                      <div className="flex items-center justify-between text-2xs">
-                        <span>Total Rows Audited:</span>
-                        <span className="font-mono text-ink">{statementData.total_rows || 0}</span>
-                      </div>
-                    </div>
-                  )}
+                  ))}
                 </div>
+              ) : drawerTab === 'parse' ? (
+                detailData?.parse_report ? (
+                  <div className="space-y-3">
+                    <div className="grid grid-cols-3 gap-3">
+                      <div className="p-3 bg-paper border border-border rounded">
+                        <div className="section-label">Total Units</div>
+                        <div className="font-mono text-lg font-bold text-ink mt-1">{detailData.parse_report.total_units}</div>
+                      </div>
+                      <div className="p-3 bg-paper border border-border rounded">
+                        <div className="section-label">Parsed Events</div>
+                        <div className="font-mono text-lg font-bold text-teal mt-1">{detailData.parse_report.parsed_events}</div>
+                      </div>
+                      <div className="p-3 bg-paper border border-border rounded">
+                        <div className="section-label">Skipped / Errors</div>
+                        <div className="font-mono text-lg font-bold text-amber mt-1">
+                          {(detailData.parse_report.skipped_units?.length || 0) + (detailData.parse_report.errors?.length || 0)}
+                        </div>
+                      </div>
+                    </div>
+                    <pre className="p-3 bg-paper border border-border rounded font-mono text-[11px] overflow-x-auto">
+                      {JSON.stringify(detailData.parse_report, null, 2)}
+                    </pre>
+                  </div>
+                ) : (
+                  <EmptyState title="No parse report recorded" description="Run the pipeline or re-ingest this exhibit to record unit reconciliation." />
+                )
+              ) : drawerTab === 'authenticity' ? (
+                isImageExhibit ? (
+                  imageLoading ? <SkeletonBlock className="h-32" /> : (
+                    <div className="space-y-3">
+                      <div className="p-3 bg-paper border border-border rounded flex items-center justify-between">
+                        <span className="font-semibold text-ink">Image Forensics Verdict</span>
+                        <TierBadge tier={imageData?.tampered ? 'TAMPERED' : 'VERIFIED BY CODE'} size="sm" />
+                      </div>
+                      <pre className="p-3 bg-paper border border-border rounded font-mono text-[11px] overflow-x-auto">
+                        {JSON.stringify(imageData, null, 2)}
+                      </pre>
+                    </div>
+                  )
+                ) : isStatementExhibit ? (
+                  statementLoading ? <SkeletonBlock className="h-32" /> : (
+                    <div className="space-y-3">
+                      <div className="p-3 bg-paper border border-border rounded flex items-center justify-between">
+                        <span className="font-semibold text-ink">Bank Ledger Arithmetic Check</span>
+                        <TierBadge tier={statementData?.mismatches?.length ? 'TAMPERED' : 'VERIFIED BY CODE'} size="sm" />
+                      </div>
+                      <pre className="p-3 bg-paper border border-border rounded font-mono text-[11px] overflow-x-auto">
+                        {JSON.stringify(statementData, null, 2)}
+                      </pre>
+                    </div>
+                  )
+                ) : (
+                  <EmptyState title="No binary authenticity check" description="Authenticity checks apply to images (EXIF/ELA/pHash) and bank statements (running-balance math)." />
+                )
+              ) : (
+                /* Mentions tab */
+                (detailData as any)?.mentions?.length ? (
+                  <div className="space-y-2">
+                    {(detailData as any).mentions.map((m: any) => (
+                      <div key={m.id} className="p-2.5 bg-paper border border-border rounded flex items-center justify-between gap-2">
+                        <div>
+                          <span className="font-mono text-[11px] font-semibold text-teal">{m.entity_type}</span>
+                          <span className="mx-1.5 text-muted">·</span>
+                          <span className="font-semibold text-ink">{m.entity_display}</span>
+                          <div className="text-[11px] text-muted truncate max-w-md mt-0.5">{m.event_text}</div>
+                        </div>
+                        <TierBadge tier={m.tier} size="sm" />
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <EmptyState title="No entity mentions extracted" description="Run the pipeline to extract entities and spans from this exhibit." />
+                )
               )}
             </div>
           </div>

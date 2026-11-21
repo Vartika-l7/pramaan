@@ -34,15 +34,14 @@ export const ExhibitChip: React.FC<ExhibitChipProps> = ({
     <button
       type="button"
       onClick={handleClick}
+      disabled={!isClickable}
       title={eventId ? `Open Source Evidence: ${exhibitId} [Event: ${eventId}]` : `Exhibit ${exhibitId}`}
-      className={`exhibit-id transition-all group ${isClickable ? 'cursor-pointer hover:border-cobalt hover:bg-cobalt/5' : 'cursor-default'} ${className}`}
+      className={`exhibit-id ${isClickable ? 'cursor-pointer' : 'cursor-default'} ${className}`}
     >
-      <Tag className={`w-3 h-3 shrink-0 ${isClickable ? 'text-cobalt' : 'text-ink-tertiary'} group-hover:text-cobalt transition-colors`} />
-      <span className={isClickable ? 'text-cobalt' : 'text-ink'}>{exhibitId}</span>
-      {subRef && <span className="text-ink-tertiary text-[10px]">· {subRef}</span>}
-      {isClickable && (
-        <ArrowUpRight className="w-2.5 h-2.5 text-cobalt ml-0.5 opacity-70 group-hover:opacity-100 transition-opacity" />
-      )}
+      <Tag className="w-3 h-3 shrink-0 text-teal" aria-hidden="true" />
+      <span className="text-ink">{exhibitId}</span>
+      {subRef && <span className="text-muted text-[11px]">· {subRef}</span>}
+      {isClickable && <ArrowUpRight className="w-3 h-3 text-teal shrink-0" aria-hidden="true" />}
     </button>
   );
 };

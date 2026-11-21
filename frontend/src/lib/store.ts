@@ -4,25 +4,40 @@ interface AppState {
   caseId: string;
   sourceViewerEventId: string | null;
   sourceViewerOpen: boolean;
-  commandPaletteOpen: boolean;
   isAnalyzing: boolean;
+
+  /* Linked-view selection across Graph, Reconstruction, and Assistant */
+  selectedEntityId: string | null;
+  selectedEventId: string | null;
+  selectedLocationId: string | null;
+
   setCaseId: (id: string) => void;
   openSourceViewer: (eventId: string) => void;
   closeSourceViewer: () => void;
-  setCommandPaletteOpen: (open: boolean) => void;
   setIsAnalyzing: (analyzing: boolean) => void;
+  setSelectedEntityId: (id: string | null) => void;
+  setSelectedEventId: (id: string | null) => void;
+  setSelectedLocationId: (id: string | null) => void;
+  clearLinkedSelection: () => void;
 }
 
 export const useAppStore = create<AppState>((set) => ({
   caseId: 'PRM-2026-0042',
   sourceViewerEventId: null,
   sourceViewerOpen: false,
-  commandPaletteOpen: false,
   isAnalyzing: false,
-  setCaseId: (id) => set({ caseId: id }),
-  openSourceViewer: (eventId) => set({ sourceViewerEventId: eventId, sourceViewerOpen: true }),
-  closeSourceViewer: () => set({ sourceViewerOpen: false, sourceViewerEventId: null }),
-  setCommandPaletteOpen: (open) => set({ commandPaletteOpen: open }),
-  setIsAnalyzing: (analyzing) => set({ isAnalyzing: analyzing }),
-}));
+  selectedEntityId: null,
+  selectedEventId: null,
+  selectedLocationId: null,
 
+  setCaseId: (id) => set({ caseId: id }),
+  openSourceViewer: (eventId) =>
+    set({ sourceViewerEventId: eventId, sourceViewerOpen: true, selectedEventId: eventId }),
+  closeSourceViewer: () => set({ sourceViewerOpen: false, sourceViewerEventId: null }),
+  setIsAnalyzing: (analyzing) => set({ isAnalyzing: analyzing }),
+  setSelectedEntityId: (id) => set({ selectedEntityId: id }),
+  setSelectedEventId: (id) => set({ selectedEventId: id }),
+  setSelectedLocationId: (id) => set({ selectedLocationId: id }),
+  clearLinkedSelection: () =>
+    set({ selectedEntityId: null, selectedEventId: null, selectedLocationId: null }),
+}));

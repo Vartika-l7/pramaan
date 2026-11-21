@@ -41,11 +41,73 @@ def get_review_queue(case_id: Optional[str] = Query(None)):
             d["item_type"] = "edge"
             edges.append(d)
 
+        cursor.execute("SELECT COUNT(*) FROM claims WHERE status = 'APPROVED';")
+        approved_claims_count = cursor.fetchone()[0]
+        cursor.execute("SELECT COUNT(*) FROM claims WHERE status != 'REMOVED';")
+        total_claims_count = cursor.fetchone()[0]
+        cursor.execute("SELECT COUNT(*) FROM edges WHERE status = 'APPROVED';")
+        approved_edges_count = cursor.fetchone()[0]
+        cursor.execute("SELECT COUNT(*) FROM edges;")
+        total_edges_count = cursor.fetchone()[0]
+
         return {
             "total_pending": len(claims) + len(edges),
+            "approved_count": approved_claims_count + approved_edges_count,
+            "total_reviewable": total_claims_count + total_edges_count,
+            "approved_claims_count": approved_claims_count,
+            "approved_edges_count": approved_edges_count,
             "claims": claims,
             "edges": edges,
         }
+    finally:
+        conn.close()
+
+
+@router.post("/bulk")
+def submit_bulk_review(
+    items: List[Dict[str, str]] = Body(..., embed=True),
+    decision: str = Body(..., embed=True),
+    reviewer: str = Body("CHIEF_INVESTIGATOR", embed=True),
+    note: Optional[str] = Body(None, embed=True),
+    case_id: Optional[str] = Query(None),
+):
+    """Bulk approve or reject a group of claims or edges."""
+    decision = decision.upper()
+    if decision not in ("APPROVED", "REJECTED"):
+        raise HTTPException(status_code=400, detail="Bulk decision must be APPROVED or REJECTED")
+
+    conn = get_db_connection(case_id)
+    try:
+        cursor = conn.cursor()
+        ts_now = datetime.now(timezone.utc).isoformat()
+        updated = 0
+        for item in items:
+            item_id = item.get("item_id")
+            item_type = item.get("item_type", "claim")
+            if not item_id:
+                continue
+            new_tier = "APPROVED" if decision == "APPROVED" else "LEAD"
+            if item_type == "claim":
+                cursor.execute(
+                    "UPDATE claims SET status = ?, tier = ? WHERE id = ?;",
+                    (decision, new_tier, item_id),
+                )
+            elif item_type == "edge":
+                cursor.execute(
+                    "UPDATE edges SET status = ?, tier = ? WHERE id = ?;",
+                    (decision, new_tier, item_id),
+                )
+            if cursor.rowcount > 0:
+                updated += 1
+                cursor.execute(
+                    """
+                    INSERT INTO reviews (id, item_type, item_id, decision, reviewer, ts, note)
+                    VALUES (?, ?, ?, ?, ?, ?, ?);
+                    """,
+                    (str(uuid.uuid4()), item_type, item_id, decision, reviewer, ts_now, note or "Bulk review"),
+                )
+        conn.commit()
+        return {"status": "SUCCESS", "updated": updated, "decision": decision}
     finally:
         conn.close()
 

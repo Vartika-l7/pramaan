@@ -1,51 +1,64 @@
 import React, { useEffect, useRef, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import cytoscape from 'cytoscape';
 // @ts-ignore
 import fcose from 'cytoscape-fcose';
 import {
-  Network,
-  Filter,
-  Info,
+  Search,
   CheckCircle2,
   XCircle,
-  HelpCircle,
-  ExternalLink,
-  Shield,
-  Layers,
-  X,
+  MessageSquare,
   Compass,
-  ArrowRight,
-  Sparkles,
-  Search,
-  Users,
 } from 'lucide-react';
 import { fetchGraph, fetchEdgeDetail, reviewEdge, fetchEntities, fetchEntityDetail } from '../lib/api';
+import { useAppStore } from '../lib/store';
+import { WorkspaceHeader } from '../components/ui/WorkspaceHeader';
 import { TierBadge } from '../components/ui/TierBadge';
 import { ExhibitChip } from '../components/evidence/ExhibitChip';
+import { SkeletonBlock, EmptyState } from '../components/ui/Skeleton';
 
 try {
   cytoscape.use(fcose);
-} catch (e) {
-  // Ignore re-registration
+} catch {
+  // Already registered
 }
+
+const NODE_TYPES = [
+  { value: 'ALL', label: 'All node types' },
+  { value: 'PERSON', label: 'People' },
+  { value: 'PHONE', label: 'Phones' },
+  { value: 'UPI', label: 'UPI IDs' },
+  { value: 'BANK_ACCOUNT', label: 'Accounts' },
+  { value: 'DEVICE', label: 'Devices' },
+  { value: 'IP', label: 'IP Addresses' },
+  { value: 'EMAIL', label: 'Email Addresses' },
+  { value: 'LOCATION', label: 'Locations' },
+  { value: 'EPISODE', label: 'Episodes' },
+];
 
 export const KnowledgeGraphPage: React.FC = () => {
   const containerRef = useRef<HTMLDivElement>(null);
   const cyRef = useRef<cytoscape.Core | null>(null);
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
+
+  const selectedEntityId = useAppStore((s) => s.selectedEntityId);
+  const setSelectedEntityId = useAppStore((s) => s.setSelectedEntityId);
 
   const [selectedEdgeId, setSelectedEdgeId] = useState<string | null>(null);
-  const [selectedEntityId, setSelectedEntityId] = useState<string | null>(null);
-  const [entitySearch, setEntitySearch] = useState('');
-  const [activeSidePanel, setActiveSidePanel] = useState<'edge' | 'entities'>('entities');
-  const [selectedTier, setSelectedTier] = useState<string>('ALL');
-  const [minStrength, setMinStrength] = useState<number>(0.0);
+  const [nodeTypeFilter, setNodeTypeFilter] = useState('ALL');
+  const [selectedTier, setSelectedTier] = useState('ALL');
+  const [minStrength, setMinStrength] = useState(0);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [timeFrom, setTimeFrom] = useState('');
+  const [timeTo, setTimeTo] = useState('');
 
   const { data: graphData, isLoading } = useQuery({
-    queryKey: ['graphData', selectedTier, minStrength],
+    queryKey: ['graphData', nodeTypeFilter, selectedTier, minStrength, searchQuery],
     queryFn: () =>
       fetchGraph({
+        type: nodeTypeFilter === 'ALL' ? undefined : nodeTypeFilter,
         tier: selectedTier === 'ALL' ? undefined : selectedTier,
         min_strength: minStrength,
       }),
@@ -57,16 +70,15 @@ export const KnowledgeGraphPage: React.FC = () => {
     enabled: !!selectedEdgeId,
   });
 
-  // Folded Entities Queries
-  const { data: entitiesList } = useQuery({
-    queryKey: ['entitiesList'],
-    queryFn: () => fetchEntities(),
-  });
-
   const { data: entityDetail } = useQuery({
     queryKey: ['entityDetail', selectedEntityId],
     queryFn: () => (selectedEntityId ? fetchEntityDetail(selectedEntityId) : null),
     enabled: !!selectedEntityId,
+  });
+
+  const { data: entitiesList } = useQuery({
+    queryKey: ['entitiesList'],
+    queryFn: () => fetchEntities(),
   });
 
   const reviewMutation = useMutation({
@@ -75,260 +87,342 @@ export const KnowledgeGraphPage: React.FC = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['graphData'] });
       queryClient.invalidateQueries({ queryKey: ['edgeDetail', selectedEdgeId] });
+      queryClient.invalidateQueries({ queryKey: ['reviewQueue'] });
     },
   });
 
-  useEffect(() => {
-    if (!containerRef.current || !graphData) return;
+  // Filter nodes client-side for search query & time range if provided
+  const rawNodes = graphData?.nodes || [];
+  const rawEdges = graphData?.edges || [];
+  const filteredNodes = rawNodes.filter((n: any) => {
+    const d = n.data || n;
+    if (searchQuery) {
+      const q = searchQuery.toLowerCase();
+      if (!(d.label || '').toLowerCase().includes(q) && !(d.type || '').toLowerCase().includes(q)) {
+        return false;
+      }
+    }
+    if (timeFrom && d.ts_utc && d.ts_utc < timeFrom) return false;
+    if (timeTo && d.ts_utc && d.ts_utc > timeTo) return false;
+    return true;
+  });
+  const allowedNodeIds = new Set(filteredNodes.map((n: any) => (n.data || n).id));
+  const filteredEdges = rawEdges.filter((e: any) => {
+    const d = e.data || e;
+    return allowedNodeIds.has(d.source) && allowedNodeIds.has(d.target);
+  });
 
+  useEffect(() => {
+    if (!containerRef.current || filteredNodes.length === 0) return;
     if (cyRef.current) {
       cyRef.current.destroy();
     }
 
     const cy = cytoscape({
       container: containerRef.current,
-      elements: {
-        nodes: graphData.nodes,
-        edges: graphData.edges,
-      },
+      elements: { nodes: filteredNodes, edges: filteredEdges },
       style: [
         {
           selector: 'node',
           style: {
             label: 'data(label)',
-            'font-family': 'DM Sans, sans-serif',
+            'font-family': 'IBM Plex Sans, sans-serif',
             'font-size': '11px',
             'font-weight': 600,
-            color: '#242D3A',
+            color: '#2B1B17',
             'text-valign': 'bottom',
             'text-margin-y': 5,
-            width: 32,
-            height: 32,
+            width: 30,
+            height: 30,
             'background-color': '#FFFFFF',
             'border-width': 1.5,
-            'border-color': '#DDD9CF',
+            'border-color': '#D3BEAE',
           },
         },
         {
           selector: 'node[type = "PERSON"]',
-          style: {
-            shape: 'ellipse',
-            'background-color': '#EEF2FC',
-            'border-color': '#2149B8',
-          },
+          style: { 'background-color': '#EDF4F6', 'border-color': '#2E5E6E' },
         },
         {
-          selector: 'node[type = "PHONE"]',
-          style: {
-            shape: 'round-rectangle',
-            'background-color': '#EFF8EA',
-            'border-color': '#2A6624',
-          },
+          selector: 'node[type = "LOCATION"], node[type = "EPISODE"]',
+          style: { shape: 'diamond', 'background-color': '#FCF4E8', 'border-color': '#C97B1A' },
         },
         {
-          selector: 'node[type = "ACCOUNT"], node[type = "UPI"]',
-          style: {
-            shape: 'diamond',
-            'background-color': '#FDF4EB',
-            'border-color': '#9C5418',
-          },
+          selector: 'node:selected',
+          style: { 'border-width': 3, 'border-color': '#DB4A2B' },
         },
         {
           selector: 'edge',
           style: {
-            width: 'mapData(strength, 0.5, 1.0, 1.5, 3.5)',
-            'line-color': '#DDD9CF',
-            'target-arrow-color': '#DDD9CF',
+            width: 2,
+            'line-color': '#D3BEAE',
+            'target-arrow-color': '#D3BEAE',
             'target-arrow-shape': 'triangle',
             'curve-style': 'bezier',
-            label: 'data(edge_type)',
-            'font-family': 'DM Sans, sans-serif',
-            'font-size': '9px',
-            color: '#5C6470',
-            'text-rotation': 'autorotate',
-            'text-background-opacity': 0.85,
-            'text-background-color': '#FFFFFF',
-            'text-background-padding': '2px',
           },
         },
         {
-          selector: 'edge[tier = "APPROVED"]',
-          style: {
-            'line-color': '#2A6624',
-            'target-arrow-color': '#2A6624',
-            width: 2.5,
-          },
+          selector: 'edge[tier = "LEAD"]',
+          style: { 'line-color': '#C97B1A', 'target-arrow-color': '#C97B1A', 'line-style': 'dashed' },
         },
         {
           selector: 'edge[tier = "VERIFIED BY CODE"]',
-          style: {
-            'line-color': '#2149B8',
-            'target-arrow-color': '#2149B8',
-          },
+          style: { 'line-color': '#2E5E6E', 'target-arrow-color': '#2E5E6E' },
+        },
+        {
+          selector: 'edge[tier = "APPROVED"]',
+          style: { 'line-color': '#3F7D58', 'target-arrow-color': '#3F7D58', width: 2.5 },
         },
         {
           selector: 'edge:selected',
-          style: {
-            'line-color': '#2149B8',
-            'target-arrow-color': '#2149B8',
-            width: 4,
-          },
+          style: { 'line-color': '#DB4A2B', 'target-arrow-color': '#DB4A2B', width: 3 },
         },
       ],
-      layout: {
-        name: 'fcose',
-        randomize: false,
-        animate: false,
-        fit: true,
-        padding: 40,
-        nodeSeparation: 80,
-      } as any,
+      layout: { name: 'fcose', animate: false, nodeRepulsion: 5500, idealEdgeLength: 90 } as any,
     });
 
     cy.on('tap', 'edge', (evt) => {
-      const edge = evt.target;
-      setSelectedEdgeId(edge.id());
-      setActiveSidePanel('edge');
+      setSelectedEdgeId(evt.target.id());
     });
 
     cy.on('tap', 'node', (evt) => {
-      const node = evt.target;
-      setSelectedEntityId(node.id());
-      setActiveSidePanel('entities');
+      setSelectedEntityId(evt.target.id());
+      setSelectedEdgeId(null);
     });
 
-    cyRef.current = cy;
-  }, [graphData]);
+    if (selectedEntityId) {
+      const target = cy.getElementById(selectedEntityId);
+      if (target && target.length > 0) {
+        target.select();
+        cy.center(target);
+      }
+    }
 
-  const filteredEntities = entitiesList?.filter((ent) =>
-    entitySearch ? ent.display.toLowerCase().includes(entitySearch.toLowerCase()) || ent.type.toLowerCase().includes(entitySearch.toLowerCase()) : true
-  );
+    cyRef.current = cy;
+    return () => {
+      cy.destroy();
+    };
+  }, [graphData, nodeTypeFilter, selectedTier, minStrength, searchQuery, timeFrom, timeTo]);
 
   return (
-    <div className="h-[calc(100vh-7rem)] flex flex-col font-sans -m-6">
-      {/* Top Filter Bar */}
-      <div className="h-14 border-b border-border bg-surface-raised px-6 flex items-center justify-between shrink-0 select-none">
-        <div className="flex items-center gap-3">
-          <div className="flex items-center gap-2">
-            <Network className="w-4 h-4 text-cobalt" />
-            <span className="font-serif font-bold text-base text-ink">Forensic Knowledge Graph</span>
+    <div className="max-w-7xl mx-auto space-y-4 h-[calc(100vh-8.5rem)] flex flex-col">
+      <WorkspaceHeader
+        workspace="investigation"
+        title="Knowledge Graph"
+        subtitle="Cross-source entity and relationship network. Correlated links remain LEADs until human-approved in Review and Report."
+      />
+
+      <div className="flex-1 grid grid-cols-1 lg:grid-cols-12 gap-4 min-h-0">
+        {/* Slim Left Filter Column */}
+        <aside className="lg:col-span-3 bg-panel border border-border rounded p-4 space-y-4 overflow-y-auto text-xs">
+          <div className="space-y-1.5">
+            <label htmlFor="graph-search" className="section-label block">Search Entities</label>
+            <div className="flex items-center gap-1.5 px-2.5 py-1.5 border border-border rounded bg-paper">
+              <Search className="w-3.5 h-3.5 text-muted shrink-0" />
+              <input
+                id="graph-search"
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Name, phone, UPI…"
+                className="w-full bg-transparent outline-none text-xs text-ink"
+              />
+            </div>
           </div>
-          <span className="text-border">|</span>
-          <div className="flex items-center gap-2 text-xs">
-            <span className="text-ink-secondary">Strength &ge;</span>
+
+          <div className="space-y-1.5">
+            <label htmlFor="graph-node-type" className="section-label block">Node Type</label>
+            <select
+              id="graph-node-type"
+              value={nodeTypeFilter}
+              onChange={(e) => setNodeTypeFilter(e.target.value)}
+              className="w-full px-2.5 py-1.5 border border-border rounded bg-paper text-xs text-ink"
+            >
+              {NODE_TYPES.map((t) => (
+                <option key={t.value} value={t.value}>{t.label}</option>
+              ))}
+            </select>
+          </div>
+
+          <div className="space-y-1.5">
+            <label htmlFor="graph-tier" className="section-label block">Tier</label>
+            <select
+              id="graph-tier"
+              value={selectedTier}
+              onChange={(e) => setSelectedTier(e.target.value)}
+              className="w-full px-2.5 py-1.5 border border-border rounded bg-paper text-xs text-ink"
+            >
+              <option value="ALL">All tiers</option>
+              <option value="VERIFIED BY CODE">VERIFIED BY CODE</option>
+              <option value="LEAD">LEAD</option>
+              <option value="APPROVED">APPROVED</option>
+            </select>
+          </div>
+
+          <div className="space-y-1.5">
+            <div className="flex items-center justify-between">
+              <label htmlFor="graph-strength" className="section-label">Min Strength</label>
+              <span className="font-mono text-ink font-semibold">{minStrength.toFixed(2)}</span>
+            </div>
             <input
+              id="graph-strength"
               type="range"
-              min="0"
-              max="1"
-              step="0.05"
+              min={0}
+              max={1}
+              step={0.05}
               value={minStrength}
               onChange={(e) => setMinStrength(parseFloat(e.target.value))}
-              className="w-20 cursor-pointer accent-cobalt"
+              className="w-full accent-amber"
             />
-            <span className="font-mono text-xs">{minStrength.toFixed(2)}</span>
           </div>
+
+          <div className="space-y-1.5">
+            <span className="section-label block">Time Range (UTC)</span>
+            <input
+              type="date"
+              value={timeFrom}
+              onChange={(e) => setTimeFrom(e.target.value)}
+              aria-label="Start date"
+              className="w-full px-2 py-1 border border-border rounded bg-paper text-xs font-mono"
+            />
+            <input
+              type="date"
+              value={timeTo}
+              onChange={(e) => setTimeTo(e.target.value)}
+              aria-label="End date"
+              className="w-full px-2 py-1 border border-border rounded bg-paper text-xs font-mono"
+            />
+          </div>
+
+          <div className="pt-2 border-t border-border text-[11px] text-muted font-mono">
+            Showing {filteredNodes.length} nodes · {filteredEdges.length} links
+          </div>
+        </aside>
+
+        {/* Center Full-Height Canvas */}
+        <div className="lg:col-span-6 bg-panel border border-border rounded relative overflow-hidden min-h-[380px]">
+          {isLoading ? (
+            <SkeletonBlock className="h-full w-full" />
+          ) : filteredNodes.length === 0 ? (
+            <div className="h-full flex items-center justify-center p-6">
+              <EmptyState
+                title="No graph nodes to display"
+                description="Upload exhibits and click Run Pipeline in the top bar to build the cross-source knowledge graph."
+              />
+            </div>
+          ) : (
+            <div ref={containerRef} className="w-full h-full" />
+          )}
         </div>
 
-        <div className="flex items-center gap-2 text-xs">
-          <button
-            type="button"
-            onClick={() => setActiveSidePanel('entities')}
-            className={`px-3 py-1.5 rounded-lg border font-medium cursor-pointer transition-colors ${
-              activeSidePanel === 'entities' ? 'bg-cobalt text-white border-cobalt' : 'bg-surface border-border text-ink-secondary'
-            }`}
-          >
-            Entities Search
-          </button>
-        </div>
-      </div>
-
-      {/* Main Canvas + Folded Inspector */}
-      <div className="flex-1 flex overflow-hidden relative">
-        <div ref={containerRef} className="flex-1 bg-ivory cursor-grab active:cursor-grabbing" />
-
-        {/* Side Panel (Entities Folded or Edge Inspector) */}
-        <aside className="w-96 border-l border-border bg-surface-raised flex flex-col h-full shadow-lg z-10 overflow-hidden">
-          {activeSidePanel === 'entities' ? (
-            <div className="flex flex-col h-full p-4 space-y-3">
-              <div className="flex items-center justify-between border-b border-border pb-2">
-                <span className="font-bold text-xs uppercase tracking-wider text-ink flex items-center gap-1.5">
-                  <Users className="w-3.5 h-3.5 text-cobalt" />
-                  Entities &amp; Mentions ({entitiesList?.length || 0})
-                </span>
-              </div>
-              <div className="flex items-center gap-2 px-2.5 py-1 text-xs border border-border rounded-lg bg-surface">
-                <Search className="w-3.5 h-3.5 text-ink-tertiary" />
-                <input
-                  type="text"
-                  placeholder="Filter entities..."
-                  value={entitySearch}
-                  onChange={(e) => setEntitySearch(e.target.value)}
-                  className="bg-transparent border-none outline-hidden text-xs text-ink w-full"
-                />
-              </div>
-
-              <div className="flex-1 overflow-y-auto space-y-1.5 divide-y divide-border/50">
-                {filteredEntities?.map((ent) => (
-                  <div
-                    key={ent.id}
-                    onClick={() => setSelectedEntityId(ent.id)}
-                    className={`p-2 rounded-lg cursor-pointer text-xs transition-colors ${
-                      selectedEntityId === ent.id ? 'bg-cobalt-light text-cobalt font-semibold' : 'hover:bg-ivory text-ink'
-                    }`}
-                  >
-                    <div className="flex items-center justify-between">
-                      <span className="truncate">{ent.display}</span>
-                      <span className="font-mono text-2xs uppercase px-1.5 py-0.5 rounded bg-surface border border-border">
-                        {ent.type}
-                      </span>
-                    </div>
+        {/* Right Detail Panel ("Why this link" / Node Profile) */}
+        <aside className="lg:col-span-3 bg-panel border border-border rounded p-4 overflow-y-auto space-y-4 text-xs">
+          {selectedEdgeId ? (
+            edgeLoading ? (
+              <SkeletonBlock className="h-40" />
+            ) : edgeDetail ? (
+              <div className="space-y-3">
+                <div className="flex items-center justify-between border-b border-border pb-2">
+                  <span className="section-label">Why This Link</span>
+                  <TierBadge tier={edgeDetail.tier} size="sm" />
+                </div>
+                <div className="font-mono text-ink font-semibold">
+                  {edgeDetail.src} → {edgeDetail.dst}
+                </div>
+                <div className="p-2.5 bg-paper border border-border rounded space-y-1">
+                  <div className="text-[11px] text-muted uppercase font-semibold">Basis: {edgeDetail.basis}</div>
+                  <p className="text-ink leading-relaxed">{edgeDetail.reason_text}</p>
+                  <div className="font-mono text-[11px] text-muted pt-1">
+                    Strength: {Math.round((edgeDetail.strength || 0) * 100)}%
                   </div>
-                ))}
-              </div>
-
-              {selectedEntityId && entityDetail && (
-                <div className="p-3 bg-ivory rounded-lg border border-border text-xs space-y-2 mt-auto">
-                  <div className="font-bold text-ink">{entityDetail.display}</div>
-                  <div className="text-2xs text-ink-secondary">Mentions: {entityDetail.mentions?.length || 0}</div>
-                  <div className="max-h-24 overflow-y-auto space-y-1 text-2xs font-mono">
-                    {entityDetail.mentions?.map((m: any, idx: number) => (
-                      <div key={idx} className="truncate p-1 bg-surface rounded border border-border">
-                        Span: [{m.char_start}:{m.char_end}] · {m.extractor}
-                      </div>
+                </div>
+                <div className="space-y-1.5">
+                  <span className="section-label block">Source Chips</span>
+                  <div className="flex flex-wrap gap-1.5">
+                    {(edgeDetail.supporting_events || []).map((ev: any) => (
+                      <ExhibitChip key={ev.id} exhibitId={ev.exhibit_id} eventId={ev.id} />
                     ))}
                   </div>
                 </div>
-              )}
-            </div>
-          ) : (
-            <div className="p-4 space-y-4 overflow-y-auto h-full text-xs">
+                <div className="flex items-center gap-2 pt-2 border-t border-border">
+                  <button
+                    type="button"
+                    onClick={() => reviewMutation.mutate({ edgeId: edgeDetail.id, decision: 'APPROVED' })}
+                    className="flex-1 inline-flex items-center justify-center gap-1 py-1.5 rounded bg-approved text-white font-semibold cursor-pointer"
+                  >
+                    <CheckCircle2 className="w-3.5 h-3.5" />
+                    <span>Approve</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => reviewMutation.mutate({ edgeId: edgeDetail.id, decision: 'REJECTED' })}
+                    className="flex-1 inline-flex items-center justify-center gap-1 py-1.5 rounded border border-vermilion text-vermilion font-semibold cursor-pointer"
+                  >
+                    <XCircle className="w-3.5 h-3.5" />
+                    <span>Reject</span>
+                  </button>
+                </div>
+              </div>
+            ) : null
+          ) : entityDetail ? (
+            <div className="space-y-3">
               <div className="flex items-center justify-between border-b border-border pb-2">
-                <span className="font-bold uppercase tracking-wider text-ink">Correlated Edge Inspector</span>
-                <button type="button" onClick={() => setActiveSidePanel('entities')} className="text-ink-tertiary hover:text-ink">
-                  <X className="w-4 h-4" />
+                <span className="section-label">{entityDetail.type}</span>
+                <span className="font-mono text-[11px] text-muted">{entityDetail.mentions?.length || 0} mentions</span>
+              </div>
+              <h3 className="font-serif text-base font-bold text-ink">{entityDetail.display}</h3>
+              <div className="flex flex-col gap-2">
+                <button
+                  type="button"
+                  onClick={() => navigate(`/assistant?focus=${encodeURIComponent(entityDetail.display)}`)}
+                  className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded bg-amber text-white font-semibold cursor-pointer"
+                >
+                  <MessageSquare className="w-3.5 h-3.5" />
+                  <span>Ask about this</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => navigate('/reconstruction')}
+                  className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded border border-border bg-paper text-ink font-medium cursor-pointer"
+                >
+                  <Compass className="w-3.5 h-3.5 text-amber" />
+                  <span>Show on reconstruction</span>
                 </button>
               </div>
-              {edgeLoading ? (
-                <div>Loading edge details...</div>
-              ) : edgeDetail ? (
-                <div className="space-y-3">
-                  <div className="p-3 bg-surface rounded border border-border">
-                    <span className="text-2xs text-ink-tertiary uppercase block">Correlation Type</span>
-                    <span className="font-bold text-sm text-ink">{edgeDetail.edge_type}</span>
+              <div className="space-y-1.5 pt-2 border-t border-border">
+                <span className="section-label block">Recent Mentions</span>
+                {(entityDetail.mentions || []).slice(0, 6).map((m: any) => (
+                  <div key={m.id} className="p-2 bg-paper border border-border rounded space-y-1">
+                    <div className="flex items-center justify-between">
+                      {m.exhibit_id && <ExhibitChip exhibitId={m.exhibit_id} eventId={m.event_id} />}
+                      <TierBadge tier={m.tier} size="sm" />
+                    </div>
+                    <p className="text-[11px] text-muted truncate">{m.text}</p>
                   </div>
-                  <div>
-                    <span className="text-2xs text-ink-tertiary uppercase block mb-1">Reason / Forensic Basis</span>
-                    <p className="text-ink text-xs leading-relaxed bg-surface p-2.5 rounded border border-border">
-                      {edgeDetail.reason_text}
-                    </p>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span>Evidence Strength:</span>
-                    <span className="font-mono font-bold text-cobalt">{(edgeDetail.strength * 100).toFixed(0)}%</span>
-                  </div>
+                ))}
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              <span className="section-label block">Inspector</span>
+              <p className="text-muted">
+                Click any node to inspect mentions or ask the Assistant. Click any edge for the &ldquo;Why this link&rdquo; breakdown.
+              </p>
+              {entitiesList && entitiesList.length > 0 && (
+                <div className="space-y-1 pt-2 border-t border-border">
+                  <span className="section-label block">Quick Select Entity</span>
+                  {entitiesList.slice(0, 8).map((ent) => (
+                    <button
+                      key={ent.id}
+                      type="button"
+                      onClick={() => setSelectedEntityId(ent.id)}
+                      className="w-full text-left px-2 py-1.5 rounded hover:bg-paper-subtle flex items-center justify-between cursor-pointer"
+                    >
+                      <span className="font-medium text-ink truncate">{ent.display}</span>
+                      <span className="font-mono text-[10px] text-muted">{ent.type}</span>
+                    </button>
+                  ))}
                 </div>
-              ) : (
-                <div>Click an edge in the graph to inspect forensic correlation basis.</div>
               )}
             </div>
           )}

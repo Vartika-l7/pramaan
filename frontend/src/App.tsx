@@ -8,10 +8,9 @@ import { SourceViewer } from './components/evidence/SourceViewer';
 
 import { OverviewPage } from './pages/OverviewPage';
 import { EvidenceVaultPage } from './pages/EvidenceVaultPage';
+import { ReviewAndReportPage } from './pages/ReviewAndReportPage';
 import { KnowledgeGraphPage } from './pages/KnowledgeGraphPage';
-import { EventSequencePage } from './pages/EventSequencePage';
-import { ReviewQueuePage } from './pages/ReviewQueuePage';
-import { CasePackagePage } from './pages/CasePackagePage';
+import { ReconstructionPage } from './pages/ReconstructionPage';
 import { AssistantPage } from './pages/AssistantPage';
 
 const queryClient = new QueryClient({
@@ -27,31 +26,27 @@ export const App: React.FC = () => {
   return (
     <QueryClientProvider client={queryClient}>
       <BrowserRouter>
-        <div className="flex h-screen w-screen overflow-hidden bg-ivory text-ink">
-          {/* Persistent Left Rail with Folded/Cut Scope */}
+        <div className="flex h-screen w-screen overflow-hidden bg-paper text-ink">
           <LeftRail />
 
-          {/* Main Content Area */}
           <div className="flex-1 flex flex-col h-full overflow-hidden">
-            {/* Top Case Bar with Simplified Search Box and Status Popover */}
             <CaseBar />
 
-            {/* Scrollable Page Body */}
             <main className="flex-1 overflow-y-auto p-6">
               <Routes>
                 <Route path="/" element={<OverviewPage />} />
                 <Route path="/evidence" element={<EvidenceVaultPage />} />
+                <Route path="/review" element={<ReviewAndReportPage />} />
+                <Route path="/package" element={<Navigate to="/review?step=package" replace />} />
                 <Route path="/graph" element={<KnowledgeGraphPage />} />
-                <Route path="/events" element={<EventSequencePage />} />
-                <Route path="/review" element={<ReviewQueuePage />} />
-                <Route path="/package" element={<CasePackagePage />} />
+                <Route path="/reconstruction" element={<ReconstructionPage />} />
+                <Route path="/events" element={<Navigate to="/reconstruction" replace />} />
                 <Route path="/assistant" element={<AssistantPage />} />
                 <Route path="*" element={<Navigate to="/" replace />} />
               </Routes>
             </main>
           </div>
 
-          {/* Global Source Viewer Slide-over */}
           <SourceViewer />
         </div>
       </BrowserRouter>

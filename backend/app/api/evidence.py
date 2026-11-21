@@ -83,6 +83,21 @@ def get_evidence_detail(evidence_id: str, case_id: Optional[str] = Query(None)):
         else:
             res["parse_report"] = None
         res["custody_events"] = custody_events
+
+        cursor.execute(
+            """
+            SELECT m.id, m.entity_id, m.event_id, m.char_start, m.char_end, m.extractor, m.tier,
+                   en.type AS entity_type, en.display AS entity_display, ev.ts_utc, ev.text AS event_text
+            FROM mentions m
+            JOIN events ev ON m.event_id = ev.id
+            JOIN entities en ON m.entity_id = en.id
+            WHERE ev.evidence_id = ?
+            ORDER BY ev.ts_utc ASC, m.char_start ASC
+            LIMIT 200;
+            """,
+            (ev_id,),
+        )
+        res["mentions"] = [dict(m) for m in cursor.fetchall()]
         return res
     finally:
         conn.close()

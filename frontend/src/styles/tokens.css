@@ -1,4 +1,10 @@
-@import url('https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,400;0,9..144,600;0,9..144,700;0,9..144,900;1,9..144,300;1,9..144,400;1,9..144,700&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&display=swap');
+@import '@fontsource/source-serif-4/400.css';
+@import '@fontsource/source-serif-4/600.css';
+@import '@fontsource/source-serif-4/700.css';
+@import '@fontsource/ibm-plex-sans/400.css';
+@import '@fontsource/ibm-plex-sans/500.css';
+@import '@fontsource/ibm-plex-sans/600.css';
+@import '@fontsource/ibm-plex-sans/700.css';
 @import '@fontsource/ibm-plex-mono/400.css';
 @import '@fontsource/ibm-plex-mono/500.css';
 @import '@fontsource/ibm-plex-mono/600.css';
@@ -9,125 +15,104 @@
 
 @layer base {
   :root {
-    --ivory: #F4F0E7;
-    --ivory-dark: #EAE6DC;
-    --surface: #FBF9F4;
-    --surface-raised: #FFFFFF;
-    --ink: #252A32;
-    --ink-secondary: #77766F;
-    --ink-tertiary: #A09E97;
-    --border: #DDD9CF;
-    --border-strong: #C4BFB4;
-    --cobalt: #315FCE;
-    --cobalt-light: #EEF2FC;
-    --tomato: #F05A3A;
-    --tomato-light: #FEF0EC;
-    --lime: #D6E36A;
-    --lime-dark: #8FA820;
-    --lime-light: #F5F9DC;
-    --lavender: #B9A4D8;
-    --lavender-dark: #6B4FA8;
-    --lavender-light: #F3F0FB;
-    --ochre: #E7B75B;
-    --ochre-dark: #A07820;
-    --ochre-light: #FDF5E4;
+    --bg-paper: #FBF8F3;
+    --bg-panel: #FFFFFF;
+    --bg-subtle: #F4EFE6;
+    --border-hairline: #E8D9CC;
+    --border-strong: #D3BEAE;
+    --ink: #2B1B17;
+    --muted: #7A5C52;
 
-    /* Legacy paper variables mapped to light theme */
-    --paper-bg: #F4F0E7;
-    --paper-dark: #EAE6DC;
-    --paper-panel: #FBF9F4;
-    --paper-border: #DDD9CF;
-    --ink-text: #252A32;
-    --ink-muted: #77766F;
-    --vermilion: #F05A3A;
+    --vermilion: #DB4A2B;
+    --vermilion-hover: #B83A1F;
+    --vermilion-light: #FDF0EC;
+
+    --teal: #2E5E6E;
+    --teal-light: #EDF4F6;
+    --teal-border: #B8D0D8;
+
+    --amber: #C97B1A;
+    --amber-light: #FCF4E8;
+    --amber-border: #E8C99B;
+
+    --approved: #3F7D58;
+    --approved-light: #EEF6F1;
+    --approved-border: #B4D4C0;
+
+    --radius: 6px;
+    --transition-fast: 150ms cubic-bezier(0.2, 0, 0, 1);
+  }
+
+  html {
+    font-size: 14px;
   }
 
   body {
-    background-color: var(--ivory);
+    background-color: var(--bg-paper);
     color: var(--ink);
-    font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+    font-family: 'IBM Plex Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+    font-size: 14px;
+    line-height: 1.5;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
   }
 
-  h1, h2, h3, h4, h5, h6, .font-serif {
-    font-family: 'Fraunces', Georgia, serif;
-    letter-spacing: -0.02em;
+  h1, h2, h3, h4, .font-serif {
+    font-family: 'Source Serif 4', Georgia, serif;
+    letter-spacing: -0.015em;
   }
 
   code, pre, .font-mono {
     font-family: 'IBM Plex Mono', monospace;
+    font-variant-numeric: tabular-nums;
+  }
+
+  *:focus-visible {
+    outline: 2px solid var(--vermilion);
+    outline-offset: 2px;
   }
 }
 
 .section-label {
-  font-family: 'DM Sans', sans-serif;
+  font-family: 'IBM Plex Sans', sans-serif;
   font-size: 0.7rem;
   font-weight: 700;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: var(--ink-secondary);
+  color: var(--muted);
 }
 
 .exhibit-id {
   font-family: 'IBM Plex Mono', monospace;
+  font-variant-numeric: tabular-nums;
   font-size: 0.75rem;
-  font-weight: 500;
+  font-weight: 600;
   letter-spacing: 0.02em;
-  background: var(--surface-raised);
-  border: 1px solid var(--border);
+  background: var(--bg-panel);
+  border: 1px solid var(--border-strong);
   color: var(--ink);
-  padding: 3px 8px;
+  padding: 2px 7px;
   border-radius: 4px;
   display: inline-flex;
   align-items: center;
   gap: 5px;
+  transition: border-color var(--transition-fast), background-color var(--transition-fast);
 }
 
-.anomaly-row-high {
-  border-left: 3px solid var(--tomato);
-  background: var(--tomato-light);
-}
-
-.anomaly-row-medium {
-  border-left: 3px solid var(--ochre);
-  background: var(--ochre-light);
-}
-
-.status-verified {
-  color: #2E7D32;
-  background: #E8F5E9;
-  border-color: #A5D6A7;
-}
-
-.status-lead {
-  color: var(--ochre-dark);
-  background: var(--ochre-light);
-  border-color: var(--ochre);
-}
-
-.status-tamper {
-  color: var(--tomato);
-  background: var(--tomato-light);
-  border-color: var(--tomato);
-}
-
-.status-ai {
-  color: var(--lavender-dark);
-  background: var(--lavender-light);
-  border-color: var(--lavender);
+.exhibit-id:hover {
+  border-color: var(--teal);
+  background: var(--teal-light);
 }
 
 .ledger-row {
-  border-bottom: 1px solid var(--border);
-  transition: background-color 0.15s ease;
+  border-bottom: 1px solid var(--border-hairline);
+  transition: background-color var(--transition-fast);
 }
 
 .ledger-row:hover {
-  background-color: var(--ivory-dark);
+  background-color: var(--bg-subtle);
 }
 
-/* Subtle clean scrollbars */
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
@@ -140,5 +125,5 @@
   border-radius: 3px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: var(--ink-tertiary);
+  background: var(--muted);
 }

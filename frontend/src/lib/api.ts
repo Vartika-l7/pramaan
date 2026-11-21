@@ -28,7 +28,9 @@ export async function fetchEvidenceList(): Promise<Evidence[]> {
   return res.json();
 }
 
-export async function fetchEvidenceDetail(evidenceId: string): Promise<Evidence & { custody_events: any[] }> {
+export async function fetchEvidenceDetail(
+  evidenceId: string
+): Promise<Evidence & { custody_events: any[]; parse_report?: any; mentions?: any[] }> {
   const res = await fetch(`${BASE_URL}/evidence/${evidenceId}`);
   if (!res.ok) throw new Error('Failed to fetch evidence detail');
   return res.json();
@@ -178,6 +180,62 @@ export async function fetchSceneReplay(episodeId?: string): Promise<any> {
   const q = episodeId ? `?episode_id=${encodeURIComponent(episodeId)}` : '';
   const res = await fetch(`${BASE_URL}/scene/replay${q}`);
   if (!res.ok) throw new Error('Failed to fetch scene replay');
+  return res.json();
+}
+
+export async function fetchReviewQueue(): Promise<any> {
+  const res = await fetch(`${BASE_URL}/review/queue`);
+  if (!res.ok) throw new Error('Failed to fetch review queue');
+  return res.json();
+}
+
+export async function submitReviewDecision(
+  itemId: string,
+  payload: { decision: 'APPROVED' | 'REJECTED' | 'EDIT'; item_type: 'claim' | 'edge'; edited_text?: string; note?: string }
+): Promise<any> {
+  const res = await fetch(`${BASE_URL}/review/${itemId}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) throw new Error('Failed to submit review decision');
+  return res.json();
+}
+
+export async function submitBulkReview(
+  items: Array<{ item_id: string; item_type: string }>,
+  decision: 'APPROVED' | 'REJECTED'
+): Promise<any> {
+  const res = await fetch(`${BASE_URL}/review/bulk`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ items, decision }),
+  });
+  if (!res.ok) throw new Error('Failed to submit bulk review');
+  return res.json();
+}
+
+export async function fetchReportPreview(): Promise<any> {
+  const res = await fetch(`${BASE_URL}/report/preview`);
+  if (!res.ok) throw new Error('Failed to fetch court report preview');
+  return res.json();
+}
+
+export async function buildCourtPackage(): Promise<any> {
+  const res = await fetch(`${BASE_URL}/report/build`, { method: 'POST' });
+  if (!res.ok) throw new Error('Failed to build court package');
+  return res.json();
+}
+
+export async function runStandaloneVerifier(): Promise<any> {
+  const res = await fetch(`${BASE_URL}/report/verify`, { method: 'POST' });
+  if (!res.ok) throw new Error('Failed to run standalone verifier');
+  return res.json();
+}
+
+export async function fetchBenchmarkResults(): Promise<any> {
+  const res = await fetch(`${BASE_URL}/benchmark/results`);
+  if (!res.ok) throw new Error('Failed to fetch benchmark results');
   return res.json();
 }
 

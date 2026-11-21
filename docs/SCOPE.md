@@ -49,3 +49,6 @@ This document inventories every feature, page, API endpoint, and background job 
 | 2026-11-19 | Heavy `CommandPalette.tsx` | **CUT** | Replaced with focused search box in `CaseBar.tsx` for cleaner visual investigation experience. |
 | 2026-11-19 | Extra Graph Layout engines | **CUT** | Cytoscape pinned to deterministic `fcose` physics layout to prevent erratic node shifting. |
 | 2026-11-19 | Uncalibrated burst detectors | **CUT** | Only deterministic mathematical anomalies (median-gap chat silences and inverted timestamps) are retained. |
+| 2026-11-22 | `ReviewQueuePage.tsx` + `CasePackagePage.tsx` | **FOLD** | Consolidated into the 3-step `ReviewAndReportPage.tsx` (`/review`) gate so human review, court package export, and standalone verification live in one flow. |
+| 2026-11-22 | `EventSequencePage.tsx` (`/events`) | **FOLD** | Renamed and expanded into `ReconstructionPage.tsx` (`/reconstruction`) with offline Locations coordinate canvas and synchronized Scene Replay (`/events` redirects to `/reconstruction`). |
+| 2026-11-22 | `CommandPalette.tsx` (unused file) | **CUT** | Removed unused legacy file (already cut in Phase 2A in favor of CaseBar quick navigation). |
