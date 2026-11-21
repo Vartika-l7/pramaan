@@ -15,7 +15,7 @@ def test_ground_truth_exists_and_valid():
         
     assert gt["case_id"] == "PRM-2026-0042"
     assert "Synthetic case" in gt["synthetic_notice"]
-    assert len(gt["planted_facts"]) == 10
+    assert len(gt["planted_facts"]) == 15
     
     fact_ids = [f["id"] for f in gt["planted_facts"]]
     for i in range(1, 11):

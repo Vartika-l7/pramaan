@@ -1,0 +1,21 @@
+city,state,lat,lon,accuracy_m
+Jaipur,Rajasthan,26.9124,75.7873,10000
+Noida,Uttar Pradesh,28.5355,77.3910,8000
+New Delhi,Delhi,28.6139,77.2090,12000
+Delhi,Delhi,28.6139,77.2090,12000
+Gurugram,Haryana,28.4595,77.0266,10000
+Mumbai,Maharashtra,19.0760,72.8777,15000
+Pune,Maharashtra,18.5204,73.8567,10000
+Nagpur,Maharashtra,21.1458,79.0882,10000
+Bengaluru,Karnataka,12.9716,77.5946,12000
+Hyderabad,Telangana,17.3850,78.4867,12000
+Chennai,Tamil Nadu,13.0827,80.2707,12000
+Kolkata,West Bengal,22.5726,88.3639,12000
+Ahmedabad,Gujarat,23.0225,72.5714,10000
+Lucknow,Uttar Pradesh,26.8467,80.9462,10000
+Chandigarh,Chandigarh,30.7333,76.7794,8000
+Indore,Madhya Pradesh,22.7196,75.8577,10000
+Surat,Gujarat,21.1702,72.8311,10000
+Patna,Bihar,25.5941,85.1376,10000
+Bhopal,Madhya Pradesh,23.2599,77.4126,10000
+Kochi,Kerala,9.9312,76.2673,10000

@@ -68,6 +68,8 @@ CREATE TABLE IF NOT EXISTS events (
     amount REAL,
     currency TEXT,
     location_id TEXT,
+    clock_offset_seconds INTEGER DEFAULT 0,
+    offset_source TEXT,
     ref_json TEXT NOT NULL,
     FOREIGN KEY(evidence_id) REFERENCES evidence(id)
 );
@@ -149,6 +151,41 @@ CREATE TABLE IF NOT EXISTS locations (
     kind TEXT
 );
 
+-- Spatio-temporal observations (entity/device at location over time interval)
+CREATE TABLE IF NOT EXISTS observations (
+    id TEXT PRIMARY KEY,
+    entity_or_device TEXT NOT NULL,
+    entity_type TEXT NOT NULL,
+    location_id TEXT,
+    place_name TEXT NOT NULL,
+    lat REAL,
+    lon REAL,
+    start_ts_utc TEXT NOT NULL,
+    end_ts_utc TEXT NOT NULL,
+    accuracy_m REAL NOT NULL,
+    source_event_id TEXT NOT NULL,
+    source_type TEXT NOT NULL,
+    FOREIGN KEY(source_event_id) REFERENCES events(id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_observations_entity ON observations(entity_or_device);
+CREATE INDEX IF NOT EXISTS idx_observations_time ON observations(start_ts_utc, end_ts_utc);
+
+-- Automated event-sequence episodes
+CREATE TABLE IF NOT EXISTS episodes (
+    id TEXT PRIMARY KEY,
+    title TEXT NOT NULL,
+    start_ts_utc TEXT NOT NULL,
+    end_ts_utc TEXT NOT NULL,
+    actors_json TEXT NOT NULL,
+    devices_json TEXT NOT NULL,
+    locations_json TEXT NOT NULL,
+    exhibits_json TEXT NOT NULL,
+    anomalies_json TEXT NOT NULL,
+    steps_json TEXT NOT NULL,
+    title_source TEXT NOT NULL DEFAULT 'template'
+);
+
 -- AI-drafted claims and verification statuses
 CREATE TABLE IF NOT EXISTS claims (
     id TEXT PRIMARY KEY,
@@ -205,11 +242,17 @@ def init_db(case_id: Optional[str] = None) -> sqlite3.Connection:
     conn = get_db_connection(case_id)
     with conn:
         conn.executescript(SCHEMA_SQL)
-        # Migrate existing schema if parse_report_json column is missing
+        # Migrate existing schema if parse_report_json or clock_offset columns are missing
         cursor = conn.cursor()
         cursor.execute("PRAGMA table_info(evidence);")
         columns = [row[1] for row in cursor.fetchall()]
         if "parse_report_json" not in columns:
             cursor.execute("ALTER TABLE evidence ADD COLUMN parse_report_json TEXT;")
+        cursor.execute("PRAGMA table_info(events);")
+        ev_cols = [row[1] for row in cursor.fetchall()]
+        if "clock_offset_seconds" not in ev_cols:
+            cursor.execute("ALTER TABLE events ADD COLUMN clock_offset_seconds INTEGER DEFAULT 0;")
+        if "offset_source" not in ev_cols:
+            cursor.execute("ALTER TABLE events ADD COLUMN offset_source TEXT;")
     return conn
 

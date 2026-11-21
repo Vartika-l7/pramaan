@@ -155,6 +155,32 @@ export async function fetchSystemCapabilities(): Promise<SystemCapabilities> {
   return res.json();
 }
 
+export async function fetchSequence(): Promise<{ episode_count: number; episodes: any[] }> {
+  const res = await fetch(`${BASE_URL}/sequence`);
+  if (!res.ok) throw new Error('Failed to fetch event sequence');
+  return res.json();
+}
+
+export async function generateSequence(): Promise<{ status: string; episode_count: number; episodes: any[] }> {
+  const res = await fetch(`${BASE_URL}/sequence/generate`, { method: 'POST' });
+  if (!res.ok) throw new Error('Failed to generate event sequence');
+  return res.json();
+}
+
+export async function fetchScene(episodeId?: string): Promise<any> {
+  const q = episodeId ? `?episode_id=${encodeURIComponent(episodeId)}` : '';
+  const res = await fetch(`${BASE_URL}/scene${q}`);
+  if (!res.ok) throw new Error('Failed to fetch crime scene reconstruction');
+  return res.json();
+}
+
+export async function fetchSceneReplay(episodeId?: string): Promise<any> {
+  const q = episodeId ? `?episode_id=${encodeURIComponent(episodeId)}` : '';
+  const res = await fetch(`${BASE_URL}/scene/replay${q}`);
+  if (!res.ok) throw new Error('Failed to fetch scene replay');
+  return res.json();
+}
+
 /**
  * Re-hash a file directly inside the browser using standard Web Crypto API.
  */

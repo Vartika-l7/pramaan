@@ -137,6 +137,70 @@
         "call_log_device2.csv"
       ],
       "tier": "LEAD"
+    },
+    {
+      "id": "GT-11",
+      "name": "Impossible Travel Anomaly",
+      "description": "Device D1 located in Jaipur via cloud location history and 20 minutes later observed at Noida Sector 62 ATM CCTV.",
+      "type": "IMPOSSIBLE_TRAVEL",
+      "device_id": "D1",
+      "locations": [
+        "Jaipur",
+        "Noida Sector 62 ATM"
+      ],
+      "sources": [
+        "cloud_location_history.json",
+        "cctv_camera_registry.csv"
+      ],
+      "severity": "HIGH"
+    },
+    {
+      "id": "GT-12",
+      "name": "Email Header IP Matched to Network Log",
+      "description": "Support email header IP 203.0.113.45 matches source IP in network portal logs.",
+      "type": "SHARED_IP_CROSS_SOURCE",
+      "ip": "203.0.113.45",
+      "sources": [
+        "email_support.eml",
+        "network_portal_logs.csv"
+      ],
+      "tier": "LEAD"
+    },
+    {
+      "id": "GT-13",
+      "name": "Portal Login During Chat Silence Gap",
+      "description": "Network log shows admin portal login at 2026-03-15 01:30+05:30 during the 6h 14m WhatsApp silence gap (GT-04).",
+      "type": "TEMPORAL_CO_OCCURRENCE",
+      "ip": "203.0.113.45",
+      "sources": [
+        "whatsapp_group_alpha_wealth.txt",
+        "network_portal_logs.csv"
+      ],
+      "tier": "LEAD"
+    },
+    {
+      "id": "GT-14",
+      "name": "CCTV Clock Offset Alignment",
+      "description": "CCTV camera CAM-NOI-ATM-01 has a +4m12s (+252s) clock offset aligning clip start 14:15:48 to 14:20:00 IST.",
+      "type": "CLOCK_OFFSET_ALIGNMENT",
+      "camera_id": "CAM-NOI-ATM-01",
+      "clock_offset_seconds": 252,
+      "sources": [
+        "cctv_camera_registry.csv"
+      ],
+      "tier": "VERIFIED BY CODE"
+    },
+    {
+      "id": "GT-15",
+      "name": "Two Personas Sharing IP and Device",
+      "description": "Personas vikram.sharma@example.com and riya.support@example.com share IP 203.0.113.45 and device D1 in cloud activity logs.",
+      "type": "SAME_DEVICE",
+      "ip": "203.0.113.45",
+      "device_id": "D1",
+      "sources": [
+        "cloud_activity_log.csv"
+      ],
+      "tier": "LEAD"
     }
   ]
 }

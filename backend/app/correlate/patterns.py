@@ -11,6 +11,7 @@ import dateutil.parser
 import networkx as nx
 
 from backend.app.config import MULE_FORWARD_RATIO_MIN, MULE_FUNNEL_WINDOW_HOURS
+from backend.app.correlate.base import deterministic_id
 
 
 def detect_mule_funnel_pattern(conn: sqlite3.Connection) -> List[Dict[str, Any]]:
@@ -58,8 +59,9 @@ def detect_mule_funnel_pattern(conn: sqlite3.Connection) -> List[Dict[str, Any]]
                 elapsed_minutes = int((last_deb_time - cr_time).total_seconds() / 60)
 
             supporting_ids = [cr["id"]] + [d["id"] for d in matching_debits]
+            finding_id = deterministic_id("anom_funnel", cr["ts_utc"], str(cr["amount"]))
             finding = {
-                "id": str(uuid.uuid4()),
+                "id": finding_id,
                 "evidence_id": ev_id,
                 "credit_amount": cr_amount,
                 "forwarded_amount": forwarded_amount,
@@ -89,10 +91,10 @@ def detect_mule_funnel_pattern(conn: sqlite3.Connection) -> List[Dict[str, Any]]
             )
 
             # Record high-strength funnel pattern edge in graph
-            edge_id = str(uuid.uuid4())
+            edge_id = deterministic_id("edge_funnel", cr["ts_utc"], str(cr["amount"]))
             cursor.execute(
                 """
-                INSERT INTO edges (id, src, dst, edge_type, basis, reason_text, strength, tier, status, event_ids_json)
+                INSERT OR IGNORE INTO edges (id, src, dst, edge_type, basis, reason_text, strength, tier, status, event_ids_json)
                 VALUES (?, 'Mule_A (912345678901)', 'Downstream_Mules (B&C)', 'PATTERN_FUNNEL', 'inferred', ?, 0.95, 'LEAD', 'LEAD', ?);
                 """,
                 (edge_id, finding["description"], json.dumps(supporting_ids)),

@@ -14,6 +14,11 @@ from backend.app.parsers.bank_pdf import BankPDFParser
 from backend.app.parsers.bank_csv import BankCSVParser
 from backend.app.parsers.calllog import CallLogParser
 from backend.app.parsers.image import ImageParser
+from backend.app.parsers.social_media import TelegramJSONParser, GenericSocialJSONParser
+from backend.app.parsers.cloud import CloudLocationHistoryParser, CloudActivityCSVParser
+from backend.app.parsers.email_parser import EmailParser
+from backend.app.parsers.network_log import NetworkLogParser
+from backend.app.parsers.cctv import CCTVCameraIndexParser, CCTVVideoParser
 from backend.app.integrity.custody import append_custody_log
 
 
@@ -25,8 +30,16 @@ class ParserRegistry:
             WhatsAppParser(),
             BankPDFParser(),
             BankCSVParser(),
+            CCTVCameraIndexParser(),
+            CloudActivityCSVParser(),
+            NetworkLogParser(),
             CallLogParser(),
             ImageParser(),
+            TelegramJSONParser(),
+            CloudLocationHistoryParser(),
+            GenericSocialJSONParser(),
+            EmailParser(),
+            CCTVVideoParser(),
         ]
 
     def register(self, parser: BaseParser):
@@ -55,6 +68,14 @@ class ParserRegistry:
             return "calllog" if "call" in lower else "bank_csv"
         elif lower.endswith((".png", ".jpg", ".jpeg")):
             return "image"
+        elif lower.endswith((".eml", ".mbox")):
+            return "email"
+        elif lower.endswith(".log"):
+            return "network_log"
+        elif lower.endswith((".mp4", ".avi", ".mov", ".mkv")):
+            return "cctv_video"
+        elif lower.endswith(".json"):
+            return "social_generic"
         return "unknown"
 
 
@@ -88,12 +109,13 @@ def parse_and_store_evidence(
     parsed_events, report = parser.parse_with_report(stored_path, evidence_id=evidence_id, filename=filename)
 
     # Insert events into unified events table
+    clock_offsets_seen: List[Dict[str, object]] = []
     for ev in parsed_events:
         event_id = str(uuid.uuid4())
         cursor.execute(
             """
-            INSERT INTO events (id, evidence_id, source_type, ts_utc, ts_original, tz_assumed, actor, counterparty, kind, text, amount, currency, location_id, ref_json)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+            INSERT INTO events (id, evidence_id, source_type, ts_utc, ts_original, tz_assumed, actor, counterparty, kind, text, amount, currency, location_id, clock_offset_seconds, offset_source, ref_json)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
             """,
             (
                 event_id,
@@ -109,8 +131,41 @@ def parse_and_store_evidence(
                 ev.amount,
                 ev.currency,
                 ev.location_id,
+                int(getattr(ev, "clock_offset_seconds", 0) or 0),
+                getattr(ev, "offset_source", None),
                 json.dumps(ev.ref, ensure_ascii=True),
             ),
+        )
+        if getattr(ev, "clock_offset_seconds", 0):
+            clock_offsets_seen.append({
+                "event_id": event_id,
+                "offset_seconds": ev.clock_offset_seconds,
+                "offset_source": ev.offset_source or "unspecified",
+                "camera_id": ev.ref.get("camera_id") if isinstance(ev.ref, dict) else None,
+            })
+        if isinstance(ev.ref, dict) and ev.ref.get("date_received_inconsistency"):
+            inc = ev.ref["date_received_inconsistency"]
+            cursor.execute(
+                """
+                INSERT OR IGNORE INTO anomalies (id, kind, severity, evidence_id, event_ids_json, description, detail_json, status)
+                VALUES (?, 'ANOMALY_EMAIL_DATE_INCONSISTENCY', 'HIGH', ?, ?, ?, ?, 'LEAD');
+                """,
+                (
+                    str(uuid.uuid4()),
+                    evidence_id,
+                    json.dumps([event_id]),
+                    f"Email Date header differs from Received chain by {inc['drift_minutes']} minutes.",
+                    json.dumps(inc),
+                ),
+            )
+
+    if clock_offsets_seen:
+        append_custody_log(
+            conn,
+            action="CLOCK_OFFSET_RECORDED",
+            actor=actor,
+            evidence_id=evidence_id,
+            details={"filename": filename, "offsets": clock_offsets_seen},
         )
 
     parser_name = parser.__class__.__name__

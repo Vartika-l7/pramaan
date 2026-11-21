@@ -16,6 +16,7 @@ from backend.app.correlate.patterns import detect_mule_funnel_pattern
 from backend.app.timeline.anomalies import detect_timeline_anomalies, detect_spatial_movement
 from backend.app.authenticity.exif import inspect_image_authenticity
 from backend.app.authenticity.statement_checks import verify_statement_arithmetic
+from backend.app.sequence.generator import generate_event_sequence
 
 router = APIRouter(prefix="/api/analyze", tags=["analyze"])
 
@@ -34,17 +35,20 @@ def execute_full_pipeline(case_id: Optional[str] = None):
         # 2. Extract entities & mentions
         ext_stats = run_entity_extraction(conn)
 
-        # 3. Correlate edges & funnel pattern
-        edge_stats = generate_correlation_edges(conn)
-        funnel_stats = detect_mule_funnel_pattern(conn)
-
-        # 4. Timeline anomalies
+        # 3. Timeline anomalies (run before correlation so TimeWindowCorrelator links chat gaps)
         tl_anoms = detect_timeline_anomalies(conn)
         sp_anoms = detect_spatial_movement(conn)
+
+        # 4. Correlate edges & funnel pattern
+        edge_stats = generate_correlation_edges(conn)
+        funnel_stats = detect_mule_funnel_pattern(conn)
 
         # 5. Media authenticity & statements
         img_anoms = inspect_image_authenticity(conn)
         stmt_anoms = verify_statement_arithmetic(conn)
+
+        # 6. Automated event-sequence generation
+        episodes = generate_event_sequence(conn)
 
         return {
             "status": "COMPLETED",
@@ -54,6 +58,7 @@ def execute_full_pipeline(case_id: Optional[str] = None):
             "funnel_patterns": len(funnel_stats),
             "timeline_anomalies": len(tl_anoms) + len(sp_anoms),
             "authenticity_anomalies": len(img_anoms) + len(stmt_anoms),
+            "episodes_generated": len(episodes),
         }
     finally:
         conn.close()

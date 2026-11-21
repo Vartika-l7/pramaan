@@ -18,6 +18,8 @@ from backend.app.api.review import router as review_router
 from backend.app.api.system import router as system_router
 from backend.app.api.report import router as report_router
 from backend.app.api.benchmark import router as benchmark_router
+from backend.app.api.sequence import router as sequence_router
+from backend.app.api.scene import router as scene_router
 
 
 @asynccontextmanager
@@ -57,6 +59,8 @@ app.include_router(review_router)
 app.include_router(system_router)
 app.include_router(report_router)
 app.include_router(benchmark_router)
+app.include_router(sequence_router)
+app.include_router(scene_router)
 
 
 @app.get("/api/health")

@@ -12,6 +12,7 @@ from backend.app.extract.patterns import extract_all_identifiers, ExtractedEntit
 from backend.app.extract.names import extract_persons, clean_person_name
 from backend.app.extract.locations import extract_locations
 from backend.app.extract.language import transliterate_devanagari_to_latin
+from backend.app.correlate.base import deterministic_id
 
 
 def run_entity_extraction(conn: sqlite3.Connection) -> Dict[str, int]:
@@ -64,7 +65,7 @@ def run_entity_extraction(conn: sqlite3.Connection) -> Dict[str, int]:
         for m in matches:
             key = (m.type, m.value_norm)
             if key not in entity_cache:
-                ent_id = str(uuid.uuid4())
+                ent_id = deterministic_id("ent", m.type, m.value_norm)
                 cursor.execute(
                     """
                     INSERT OR IGNORE INTO entities (id, type, value_norm, display, first_event_id)
@@ -124,11 +125,11 @@ def run_fuzzy_resolution(conn: sqlite3.Connection, threshold: float = 75.0) -> i
             # RapidFuzz similarity
             ratio = fuzz.token_sort_ratio(name1, name2)
             if ratio >= threshold:
-                edge_id = str(uuid.uuid4())
+                edge_id = deterministic_id("edge_fuzzy", id1, id2, "SAME_PERSON_FUZZY")
                 reason = f"Fuzzy name match ({ratio:.1f}% similarity) between '{p1['display']}' and '{p2['display']}'"
                 cursor.execute(
                     """
-                    INSERT INTO edges (id, src, dst, edge_type, basis, reason_text, strength, tier, status, event_ids_json)
+                    INSERT OR IGNORE INTO edges (id, src, dst, edge_type, basis, reason_text, strength, tier, status, event_ids_json)
                     VALUES (?, ?, ?, 'SAME_PERSON_FUZZY', 'inferred', ?, ?, 'LEAD', 'LEAD', '[]');
                     """,
                     (edge_id, id1, id2, reason, ratio / 100.0),

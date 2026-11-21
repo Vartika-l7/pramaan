@@ -1,0 +1,2 @@
+camera_id,location_name,lat,lon,clip_file,clip_start_local,clip_end_local,clock_offset_seconds,offset_source,observed_subject
+CAM-NOI-ATM-01,Noida Sector 62 ATM,28.6279,77.3649,cam_noi_atm_01_clip.mp4,2026-03-15 14:15:48,2026-03-15 14:17:48,252,NTP drift audit (+4m12s),D1

@@ -71,6 +71,8 @@ class ParsedEvent:
     amount: Optional[float] = None
     currency: Optional[str] = None
     location_id: Optional[str] = None
+    clock_offset_seconds: int = 0
+    offset_source: Optional[str] = None
 
 
 class BaseParser(ABC):

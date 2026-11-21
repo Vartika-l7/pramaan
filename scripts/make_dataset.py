@@ -610,11 +610,214 @@ def generate_ground_truth(out_path: Path):
                 "sources": ["call_log_device1.csv", "call_log_device2.csv"],
                 "tier": "LEAD",
             },
+            {
+                "id": "GT-11",
+                "name": "Impossible Travel Anomaly",
+                "description": "Device D1 located in Jaipur via cloud location history and 20 minutes later observed at Noida Sector 62 ATM CCTV.",
+                "type": "IMPOSSIBLE_TRAVEL",
+                "device_id": "D1",
+                "locations": ["Jaipur", "Noida Sector 62 ATM"],
+                "sources": ["cloud_location_history.json", "cctv_camera_registry.csv"],
+                "severity": "HIGH",
+            },
+            {
+                "id": "GT-12",
+                "name": "Email Header IP Matched to Network Log",
+                "description": "Support email header IP 203.0.113.45 matches source IP in network portal logs.",
+                "type": "SHARED_IP_CROSS_SOURCE",
+                "ip": "203.0.113.45",
+                "sources": ["email_support.eml", "network_portal_logs.csv"],
+                "tier": "LEAD",
+            },
+            {
+                "id": "GT-13",
+                "name": "Portal Login During Chat Silence Gap",
+                "description": "Network log shows admin portal login at 2026-03-15 01:30+05:30 during the 6h 14m WhatsApp silence gap (GT-04).",
+                "type": "TEMPORAL_CO_OCCURRENCE",
+                "ip": "203.0.113.45",
+                "sources": ["whatsapp_group_alpha_wealth.txt", "network_portal_logs.csv"],
+                "tier": "LEAD",
+            },
+            {
+                "id": "GT-14",
+                "name": "CCTV Clock Offset Alignment",
+                "description": "CCTV camera CAM-NOI-ATM-01 has a +4m12s (+252s) clock offset aligning clip start 14:15:48 to 14:20:00 IST.",
+                "type": "CLOCK_OFFSET_ALIGNMENT",
+                "camera_id": "CAM-NOI-ATM-01",
+                "clock_offset_seconds": 252,
+                "sources": ["cctv_camera_registry.csv"],
+                "tier": "VERIFIED BY CODE",
+            },
+            {
+                "id": "GT-15",
+                "name": "Two Personas Sharing IP and Device",
+                "description": "Personas vikram.sharma@example.com and riya.support@example.com share IP 203.0.113.45 and device D1 in cloud activity logs.",
+                "type": "SAME_DEVICE",
+                "ip": "203.0.113.45",
+                "device_id": "D1",
+                "sources": ["cloud_activity_log.csv"],
+                "tier": "LEAD",
+            },
         ],
     }
     with open(out_path, "w", encoding="utf-8") as f:
         json.dump(gt_data, f, indent=2, ensure_ascii=False)
     print(f"Generated Ground Truth JSON: {out_path.name}")
+
+
+def generate_ps3_extended_sources(target_dir: Path):
+    """Generate B8 extended heterogeneous sources using example.com and 203.0.113.0/24."""
+    import email.message
+    import mailbox
+    import shutil
+    import subprocess
+
+    # 1. tower_registry.csv
+    tower_path = target_dir / "tower_registry.csv"
+    with open(tower_path, "w", newline="", encoding="utf-8") as f:
+        w = csv.writer(f)
+        w.writerow(["tower_id", "location_name", "lat", "lon", "accuracy_m"])
+        w.writerow(["TOW-NOI-042", "Noida Sector 62", "28.6279", "77.3649", "500"])
+        w.writerow(["TOW-JAI-108", "Jaipur Malviya Nagar", "26.8549", "75.8243", "600"])
+        w.writerow(["TOW-PUN-011", "Pune Shivajinagar", "18.5308", "73.8475", "500"])
+        w.writerow(["TOW-DEL-007", "New Delhi Connaught Place", "28.6315", "77.2167", "450"])
+
+    # 2. email_support.eml (GT-12)
+    eml_path = target_dir / "email_support.eml"
+    msg = email.message.EmailMessage()
+    msg["From"] = "support@alpha-wealth.example.com"
+    msg["To"] = "meera.iyer@example.com"
+    msg["Subject"] = "Alpha Wealth VIP Tier Confirmation"
+    msg["Date"] = "Fri, 13 Mar 2026 10:15:00 +0530"
+    msg["Message-ID"] = "<vip-001@alpha-wealth.example.com>"
+    msg["X-Originating-IP"] = "[203.0.113.45]"
+    msg["Received"] = "from portal.alpha-wealth.example.com (203.0.113.45) by mx.example.com; Fri, 13 Mar 2026 10:15:02 +0530"
+    msg.set_content("Dear Meera, please transfer INR 50,000 to vikram.alpha@okaxis to activate your VIP Tier.")
+    msg.add_attachment(b"VIP_TIER_BROCHURE_SYNTHETIC_PDF_BYTES", maintype="application", subtype="octet-stream", filename="vip_brochure.bin")
+    eml_path.write_bytes(msg.as_bytes())
+
+    # 3. mailbox_investigator.mbox (includes Date vs Received inconsistency)
+    mbox_path = target_dir / "mailbox_investigator.mbox"
+    if mbox_path.exists():
+        mbox_path.unlink()
+    mb = mailbox.mbox(str(mbox_path))
+    m1 = email.message.EmailMessage()
+    m1["From"] = "vikram.sharma@alpha-wealth.example.com"
+    m1["To"] = "deepak.rawat@example.com"
+    m1["Subject"] = "Daily Settlement Instructions"
+    m1["Date"] = "Sat, 14 Mar 2026 11:00:00 +0530"
+    m1["Message-ID"] = "<settle-002@alpha-wealth.example.com>"
+    m1["Received"] = "from relay.example.com (203.0.113.45) by mx.example.com; Sat, 14 Mar 2026 11:01:00 +0530"
+    m1.set_content("Forward 90% of incoming credits to Sunita Verma and Kabir Anand immediately.")
+    mb.add(m1)
+
+    m2 = email.message.EmailMessage()
+    m2["From"] = "admin@alpha-wealth.example.com"
+    m2["To"] = "riya.support@example.com"
+    m2["Subject"] = "Backdated Receipt Notice"
+    m2["Date"] = "Thu, 12 Mar 2026 08:00:00 +0530"  # Deliberate 72h drift vs Received
+    m2["Message-ID"] = "<backdate-003@alpha-wealth.example.com>"
+    m2["Received"] = "from relay.example.com (203.0.113.46) by mx.example.com; Sun, 15 Mar 2026 08:00:00 +0530"
+    m2.set_content("Use the attached withdrawal screenshot for customer reassurance.")
+    mb.add(m2)
+    mb.flush()
+    mb.close()
+
+    # 4. network_portal_logs.csv (GT-12 & GT-13)
+    net_path = target_dir / "network_portal_logs.csv"
+    with open(net_path, "w", newline="", encoding="utf-8") as f:
+        w = csv.writer(f)
+        w.writerow(["timestamp", "src_ip", "dst_ip", "port", "user", "action"])
+        w.writerow(["2026-03-13T10:14:30+05:30", "203.0.113.45", "203.0.113.10", "443", "vikram.admin", "SMTP_RELAY_AUTH"])
+        w.writerow(["2026-03-15T01:30:00+05:30", "203.0.113.45", "203.0.113.10", "443", "vikram.admin", "ADMIN_PORTAL_LOGIN"])
+        w.writerow(["2026-03-15T01:42:15+05:30", "203.0.113.45", "203.0.113.10", "443", "vikram.admin", "EXPORT_LEDGER"])
+
+    # 5. cloud_location_history.json (GT-11: D1 in Jaipur at 14:00 IST)
+    loc_path = target_dir / "cloud_location_history.json"
+    loc_data = {
+        "account": "vikram.sharma@example.com",
+        "device_id": "D1",
+        "locations": [
+            {
+                "timestamp": "2026-03-15T14:00:00+05:30",
+                "lat": 26.9124,
+                "lon": 75.7873,
+                "accuracy_m": 25.0,
+                "place_name": "Jaipur",
+                "device_id": "D1",
+            },
+            {
+                "timestamp": "2026-03-14T18:00:00+05:30",
+                "lat": 28.6279,
+                "lon": 77.3649,
+                "accuracy_m": 30.0,
+                "place_name": "Noida Sector 62",
+                "device_id": "D1",
+            },
+        ],
+    }
+    loc_path.write_text(json.dumps(loc_data, indent=2), encoding="utf-8")
+
+    # 6. cloud_activity_log.csv (GT-15: two personas sharing IP 203.0.113.45 and device D1)
+    cloud_act_path = target_dir / "cloud_activity_log.csv"
+    with open(cloud_act_path, "w", newline="", encoding="utf-8") as f:
+        w = csv.writer(f)
+        w.writerow(["timestamp", "account", "action", "ip", "device"])
+        w.writerow(["2026-03-14T20:10:00+05:30", "vikram.sharma@example.com", "CLOUD_DRIVE_LOGIN", "203.0.113.45", "D1"])
+        w.writerow(["2026-03-14T20:15:00+05:30", "riya.support@example.com", "CLOUD_DRIVE_LOGIN", "203.0.113.45", "D1"])
+
+    # 7. telegram_alpha_export.json
+    tg_path = target_dir / "telegram_alpha_export.json"
+    tg_data = {
+        "name": "Alpha Wealth VIP Channel",
+        "type": "private_supergroup",
+        "messages": [
+            {
+                "id": 101,
+                "type": "message",
+                "date": "2026-03-14T12:00:00+05:30",
+                "from": "Vikram Sharma",
+                "text": "VIP settlement batch ready. Send to vikram.alpha@okaxis.",
+            },
+            {
+                "id": 102,
+                "type": "message",
+                "date": "2026-03-14T12:05:00+05:30",
+                "from": "Riya (Support)",
+                "text": "Confirmed, Jaipur desk and Noida ATM team notified.",
+            },
+        ],
+    }
+    tg_path.write_text(json.dumps(tg_data, indent=2), encoding="utf-8")
+
+    # 8. cctv_camera_registry.csv + synthetic placeholder clip (GT-11 & GT-14)
+    clip_name = "cam_noi_atm_01_clip.mp4"
+    clip_path = target_dir / clip_name
+    ffmpeg_bin = shutil.which("ffmpeg")
+    if ffmpeg_bin:
+        try:
+            subprocess.run(
+                [ffmpeg_bin, "-y", "-f", "lavfi", "-i", "color=c=black:s=320x240:d=1", "-c:v", "libx264", str(clip_path)],
+                capture_output=True,
+                timeout=10,
+            )
+        except Exception:
+            pass
+    if not clip_path.exists() or clip_path.stat().st_size == 0:
+        clip_path.write_bytes(b"PRAMAAN_SYNTHETIC_CCTV_PLACEHOLDER_CLIP_CAM_NOI_ATM_01")
+
+    cctv_csv = target_dir / "cctv_camera_registry.csv"
+    with open(cctv_csv, "w", newline="", encoding="utf-8") as f:
+        w = csv.writer(f)
+        w.writerow([
+            "camera_id", "location_name", "lat", "lon", "clip_file",
+            "clip_start_local", "clip_end_local", "clock_offset_seconds", "offset_source", "observed_subject",
+        ])
+        w.writerow([
+            "CAM-NOI-ATM-01", "Noida Sector 62 ATM", "28.6279", "77.3649", clip_name,
+            "2026-03-15 14:15:48", "2026-03-15 14:17:48", "252", "NTP drift audit (+4m12s)", "D1",
+        ])
+    print("Generated PS3 extended sources (email, mbox, network log, cloud history/activity, telegram, cctv, towers).")
 
 
 def main():
@@ -633,8 +836,9 @@ def main():
         target_dir / "screenshot_reused_a.png",
         target_dir / "screenshot_reused_b.jpg",
     )
+    generate_ps3_extended_sources(target_dir)
     generate_ground_truth(target_dir / "ground_truth.json")
-    print(f"\n[DONE] Synthetic dataset generation completed successfully. All 10 planted facts generated.")
+    print(f"\n[DONE] Synthetic dataset generation completed successfully. All 15 planted facts generated.")
 
 
 if __name__ == "__main__":

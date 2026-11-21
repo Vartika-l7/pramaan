@@ -1,0 +1,5 @@
+tower_id,location_name,lat,lon,accuracy_m
+TOW-NOI-042,Noida Sector 62,28.6279,77.3649,500
+TOW-JAI-108,Jaipur Malviya Nagar,26.8549,75.8243,600
+TOW-PUN-011,Pune Shivajinagar,18.5308,73.8475,500
+TOW-DEL-007,New Delhi Connaught Place,28.6315,77.2167,450

@@ -15,7 +15,7 @@ import {
   Compass,
   ArrowRight,
 } from 'lucide-react';
-import { fetchEvents, fetchAnomalies } from '../lib/api';
+import { fetchEvents, fetchAnomalies, fetchSequence, generateSequence, fetchScene } from '../lib/api';
 import { useAppStore } from '../lib/store';
 import { ExhibitChip } from '../components/evidence/ExhibitChip';
 import { ForensicEvent } from '../types';
@@ -44,6 +44,16 @@ export const EventSequencePage: React.FC = () => {
   const { data: anomalies } = useQuery({
     queryKey: ['anomaliesList'],
     queryFn: () => fetchAnomalies(),
+  });
+
+  const [selectedEpisodeId, setSelectedEpisodeId] = useState<string | undefined>(undefined);
+  const { data: sequenceData, refetch: refetchSequence } = useQuery({
+    queryKey: ['eventSequence'],
+    queryFn: () => fetchSequence(),
+  });
+  const { data: sceneData } = useQuery({
+    queryKey: ['crimeScene', selectedEpisodeId],
+    queryFn: () => fetchScene(selectedEpisodeId),
   });
 
   // Extract unique locations for the spatial side list
@@ -349,6 +359,68 @@ export const EventSequencePage: React.FC = () => {
                 </button>
               ))}
             </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Phase 2B Working Hook: Automated Event Sequence & Digital Crime Scene Reconstruction */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="bg-surface-raised rounded-xl border border-border p-4 space-y-3">
+          <div className="flex items-center justify-between border-b border-border pb-2">
+            <span className="font-bold text-xs uppercase tracking-wider text-ink">
+              Automated Event Sequence ({sequenceData?.episode_count ?? 0} Episodes)
+            </span>
+            <button
+              type="button"
+              onClick={async () => {
+                await generateSequence();
+                refetchSequence();
+              }}
+              className="text-2xs px-2.5 py-1 rounded border border-border bg-surface hover:bg-ivory font-semibold"
+            >
+              Regenerate Sequence
+            </button>
+          </div>
+          <div className="space-y-2 max-h-72 overflow-y-auto">
+            {sequenceData?.episodes?.map((ep: any) => (
+              <button
+                key={ep.id}
+                type="button"
+                onClick={() => setSelectedEpisodeId(selectedEpisodeId === ep.id ? undefined : ep.id)}
+                className={`w-full text-left p-2.5 rounded-lg border text-xs space-y-1 ${
+                  selectedEpisodeId === ep.id ? 'border-cobalt bg-ivory' : 'border-border bg-surface'
+                }`}
+              >
+                <div className="font-bold text-ink">{ep.id}: {ep.title}</div>
+                <div className="font-mono text-2xs text-ink-muted">
+                  {ep.start_ts_utc} → {ep.end_ts_utc} · {ep.steps?.length || 0} steps
+                </div>
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="bg-surface-raised rounded-xl border border-border p-4 space-y-3">
+          <div className="flex items-center justify-between border-b border-border pb-2">
+            <span className="font-bold text-xs uppercase tracking-wider text-ink">
+              Crime Scene Reconstruction {selectedEpisodeId ? `(${selectedEpisodeId})` : '(Full Window)'}
+            </span>
+            <span className="font-mono text-2xs text-ink-muted">
+              {sceneData?.locations?.length ?? 0} location(s) · {sceneData?.anomalies?.length ?? 0} anomaly(s)
+            </span>
+          </div>
+          <div className="space-y-2 max-h-72 overflow-y-auto text-xs">
+            {sceneData?.presence?.slice(0, 12).map((p: any, idx: number) => (
+              <div key={idx} className="p-2 rounded border border-border bg-surface flex items-center justify-between gap-2">
+                <div>
+                  <span className="font-semibold text-ink">{p.entity_or_device}</span>
+                  <span className="text-ink-muted"> @ {p.place_name}</span>
+                </div>
+                <span className="font-mono text-2xs text-ink-muted">
+                  {p.exhibit_id ? `${p.exhibit_id} (±${p.accuracy_m}m)` : p.status}
+                </span>
+              </div>
+            ))}
           </div>
         </div>
       </div>

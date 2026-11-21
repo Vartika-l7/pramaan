@@ -6,8 +6,9 @@ import json
 from datetime import datetime, timezone
 from typing import Optional, Dict, Any
 from fastapi import APIRouter, HTTPException, Query, Body
+from fastapi.responses import PlainTextResponse, JSONResponse
 from backend.app.db import get_db_connection
-from backend.app.correlate.graph import get_cytoscape_graph
+from backend.app.correlate.graph import get_cytoscape_graph, export_graph_graphml
 
 router = APIRouter(prefix="/api/graph", tags=["graph"])
 
@@ -18,11 +19,37 @@ def get_graph(
     type: Optional[str] = Query(None),
     tier: Optional[str] = Query(None),
     min_strength: float = Query(0.0, ge=0.0, le=1.0),
+    edge_type: Optional[str] = Query(None),
+    query: Optional[str] = Query(None),
 ):
     """Retrieve full knowledge graph nodes and edges formatted for Cytoscape.js."""
     conn = get_db_connection(case_id)
     try:
-        return get_cytoscape_graph(conn, type_filter=type, tier_filter=tier, min_strength=min_strength)
+        return get_cytoscape_graph(
+            conn,
+            type_filter=type,
+            tier_filter=tier,
+            min_strength=min_strength,
+            edge_type_filter=edge_type,
+            query=query,
+        )
+    finally:
+        conn.close()
+
+
+@router.get("/export")
+def export_graph(
+    format: str = Query("json", pattern="^(json|graphml)$"),
+    case_id: Optional[str] = Query(None),
+):
+    """Export the Knowledge Graph as JSON or GraphML."""
+    conn = get_db_connection(case_id)
+    try:
+        graph_data = get_cytoscape_graph(conn)
+        if format == "graphml":
+            xml_str = export_graph_graphml(graph_data)
+            return PlainTextResponse(content=xml_str, media_type="application/xml")
+        return JSONResponse(content=graph_data)
     finally:
         conn.close()
 
