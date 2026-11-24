@@ -48,7 +48,7 @@ def _fresh_conn() -> sqlite3.Connection:
     return conn
 
 
-def _run_full_pipeline(conn: sqlite3.Connection, store_root: Path | None = None):
+def _run_full_pipeline(conn: sqlite3.Connection, store_root: Path | None = None, data_dir: Path = DATA_DIR):
     import backend.app.ingest.service as ingest_svc
     import backend.app.authenticity.exif as exif_mod
     import backend.app.authenticity.ela as ela_mod
@@ -62,7 +62,7 @@ def _run_full_pipeline(conn: sqlite3.Connection, store_root: Path | None = None)
     ela_mod.ELA_DIR.mkdir(parents=True, exist_ok=True)
     exif_mod.ELA_DIR = ela_mod.ELA_DIR
     try:
-        files = sorted(f for f in DATA_DIR.iterdir() if f.is_file() and f.name not in SKIP_DATA_FILES)
+        files = sorted(f for f in data_dir.iterdir() if f.is_file() and f.name not in SKIP_DATA_FILES)
         for f in files:
             with open(f, "rb") as fh:
                 res = ingest_file(conn, fh, f.name, actor="TEST_DETERMINISM")
@@ -202,116 +202,131 @@ def test_spatial_and_temporal_logic():
     assert res["impossible_travel"][0]["implied_speed_kmh"] > 200.0
 
 
-def test_full_pipeline_determinism():
+@pytest.mark.integration
+def test_full_pipeline_determinism(synthetic_dataset_dir: Path):
     """Run full pipeline twice on fresh DBs and assert hashes, IDs, edges, anomalies, claims, episodes, and scenes match."""
     conn1 = _fresh_conn()
     conn2 = _fresh_conn()
+    try:
+        ep1, sc1, ver1 = _run_full_pipeline(conn1, data_dir=synthetic_dataset_dir)
+        ep2, sc2, ver2 = _run_full_pipeline(conn2, data_dir=synthetic_dataset_dir)
 
-    ep1, sc1, ver1 = _run_full_pipeline(conn1)
-    ep2, sc2, ver2 = _run_full_pipeline(conn2)
+        # Evidence hashes & IDs
+        ev1 = [dict(r) for r in conn1.execute("SELECT id, exhibit_id, filename, sha256, size_bytes FROM evidence ORDER BY exhibit_id;").fetchall()]
+        ev2 = [dict(r) for r in conn2.execute("SELECT id, exhibit_id, filename, sha256, size_bytes FROM evidence ORDER BY exhibit_id;").fetchall()]
+        assert ev1 == ev2
 
-    # Evidence hashes & IDs
-    ev1 = [dict(r) for r in conn1.execute("SELECT id, exhibit_id, filename, sha256, size_bytes FROM evidence ORDER BY exhibit_id;").fetchall()]
-    ev2 = [dict(r) for r in conn2.execute("SELECT id, exhibit_id, filename, sha256, size_bytes FROM evidence ORDER BY exhibit_id;").fetchall()]
-    assert ev1 == ev2
+        # Event IDs
+        events1 = [r["id"] for r in conn1.execute("SELECT id FROM events ORDER BY ts_utc ASC, id ASC;").fetchall()]
+        events2 = [r["id"] for r in conn2.execute("SELECT id FROM events ORDER BY ts_utc ASC, id ASC;").fetchall()]
+        assert events1 == events2
 
-    # Event IDs (excluding image file mtime if any, checking IDs and deterministic parsed events)
-    events1 = [r["id"] for r in conn1.execute("SELECT id FROM events ORDER BY ts_utc ASC, id ASC;").fetchall()]
-    events2 = [r["id"] for r in conn2.execute("SELECT id FROM events ORDER BY ts_utc ASC, id ASC;").fetchall()]
-    assert events1 == events2
+        # Edges
+        edges1 = [dict(r) for r in conn1.execute("SELECT id, src, dst, edge_type, basis, strength, event_ids_json FROM edges ORDER BY id;").fetchall()]
+        edges2 = [dict(r) for r in conn2.execute("SELECT id, src, dst, edge_type, basis, strength, event_ids_json FROM edges ORDER BY id;").fetchall()]
+        assert edges1 == edges2
 
-    # Edges
-    edges1 = [dict(r) for r in conn1.execute("SELECT id, src, dst, edge_type, basis, strength, event_ids_json FROM edges ORDER BY id;").fetchall()]
-    edges2 = [dict(r) for r in conn2.execute("SELECT id, src, dst, edge_type, basis, strength, event_ids_json FROM edges ORDER BY id;").fetchall()]
-    assert edges1 == edges2
+        # Anomalies
+        anom1 = [dict(r) for r in conn1.execute("SELECT id, kind, severity, evidence_id, event_ids_json, description FROM anomalies ORDER BY id;").fetchall()]
+        anom2 = [dict(r) for r in conn2.execute("SELECT id, kind, severity, evidence_id, event_ids_json, description FROM anomalies ORDER BY id;").fetchall()]
+        assert anom1 == anom2
 
-    # Anomalies
-    anom1 = [dict(r) for r in conn1.execute("SELECT id, kind, severity, evidence_id, event_ids_json, description FROM anomalies ORDER BY id;").fetchall()]
-    anom2 = [dict(r) for r in conn2.execute("SELECT id, kind, severity, evidence_id, event_ids_json, description FROM anomalies ORDER BY id;").fetchall()]
-    assert anom1 == anom2
+        # Claims in deterministic mode
+        assert ver1["verified_claims"] == ver2["verified_claims"]
+        assert ver1["removed_claims"] == ver2["removed_claims"]
 
-    # Claims in deterministic mode
-    assert ver1["verified_claims"] == ver2["verified_claims"]
-    assert ver1["removed_claims"] == ver2["removed_claims"]
-
-    # Sequence & scene determinism
-    assert ep1 == ep2
-    assert sc1 == sc2
+        # Sequence & scene determinism
+        assert ep1 == ep2
+        assert sc1 == sc2
+    finally:
+        conn1.close()
+        conn2.close()
 
 
-def test_verifier_and_backend_crosscheck(tmp_path: Path):
+@pytest.mark.integration
+def test_verifier_and_backend_crosscheck(tmp_path: Path, synthetic_dataset_dir: Path):
     """Standalone verifier.py and backend verify_case_integrity must agree on intact and tampered packages."""
     conn = _fresh_conn()
-    _run_full_pipeline(conn, store_root=tmp_path / "store")
+    try:
+        _run_full_pipeline(conn, store_root=tmp_path / "store", data_dir=synthetic_dataset_dir)
 
-    pkg_dir = tmp_path / "pkg_intact"
-    assemble_case_package(conn, case_id="CROSS-CHECK", target_package_dir=pkg_dir)
+        pkg_dir = tmp_path / "pkg_intact"
+        assemble_case_package(conn, case_id="CROSS-CHECK", target_package_dir=pkg_dir)
 
-    backend_ok = verify_case_integrity(conn)
-    proc_ok = subprocess.run(
-        [sys.executable, str(ROOT / "verifier" / "verifier.py"), "--package", str(pkg_dir)],
-        capture_output=True,
-        text=True,
-    )
-    assert backend_ok["intact"] is True
-    assert proc_ok.returncode == 0
-    assert backend_ok["merkle_root"] in proc_ok.stdout
+        backend_ok = verify_case_integrity(conn)
+        proc_ok = subprocess.run(
+            [sys.executable, str(ROOT / "verifier" / "verifier.py"), "--package", str(pkg_dir)],
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+        assert backend_ok["intact"] is True
+        assert proc_ok.returncode == 0
+        assert backend_ok["merkle_root"] in proc_ok.stdout
 
-    # Tamper with an evidence file in the exported package AND test tampered manifest
-    ev_files = sorted((pkg_dir / "evidence").iterdir())
-    assert len(ev_files) > 0
-    ev_files[0].chmod(0o644)
-    ev_files[0].write_bytes(b"TAMPERED_DATA")
+        # Tamper with an evidence file in the exported package AND test tampered manifest
+        ev_files = sorted((pkg_dir / "evidence").iterdir())
+        assert len(ev_files) > 0
+        ev_files[0].chmod(0o644)
+        ev_files[0].write_bytes(b"TAMPERED_DATA")
 
-    proc_tampered = subprocess.run(
-        [sys.executable, str(ROOT / "verifier" / "verifier.py"), "--package", str(pkg_dir)],
-        capture_output=True,
-        text=True,
-    )
-    assert proc_tampered.returncode != 0
-    assert "TAMPERING OR CORRUPTION DETECTED" in proc_tampered.stdout
+        proc_tampered = subprocess.run(
+            [sys.executable, str(ROOT / "verifier" / "verifier.py"), "--package", str(pkg_dir)],
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+        assert proc_tampered.returncode != 0
+        assert "TAMPERING OR CORRUPTION DETECTED" in proc_tampered.stdout
 
-    # Tamper manifest in DB and verify backend also fails
-    conn.execute("UPDATE manifests SET merkle_root = '0000' || substr(merkle_root, 5);")
-    conn.commit()
-    backend_tampered = verify_case_integrity(conn)
-    assert backend_tampered["intact"] is False
+        # Tamper manifest in DB and verify backend also fails
+        conn.execute("UPDATE manifests SET merkle_root = '0000' || substr(merkle_root, 5);")
+        conn.commit()
+        backend_tampered = verify_case_integrity(conn)
+        assert backend_tampered["intact"] is False
+    finally:
+        conn.close()
 
 
-def test_ground_truth_gt01_to_gt15_recall():
+@pytest.mark.integration
+def test_ground_truth_gt01_to_gt15_recall(synthetic_dataset_dir: Path):
     """Verify all 15 planted ground-truth facts (GT-01..GT-15) are detected."""
     conn = _fresh_conn()
-    _run_full_pipeline(conn)
+    try:
+        _run_full_pipeline(conn, data_dir=synthetic_dataset_dir)
 
-    gt = json.loads((DATA_DIR / "ground_truth.json").read_text(encoding="utf-8"))
-    assert len(gt["planted_facts"]) == 15
+        gt = json.loads((synthetic_dataset_dir / "ground_truth.json").read_text(encoding="utf-8"))
+        assert len(gt["planted_facts"]) == 15
 
-    g = get_cytoscape_graph(conn)
-    edge_types = {e["data"]["edge_type"] for e in g["edges"]}
-    anom_kinds = {r["kind"] for r in conn.execute("SELECT kind FROM anomalies;").fetchall()}
-    custody_actions = {r["action"] for r in conn.execute("SELECT action FROM custody_log;").fetchall()}
+        g = get_cytoscape_graph(conn)
+        edge_types = {e["data"]["edge_type"] for e in g["edges"]}
+        anom_kinds = {r["kind"] for r in conn.execute("SELECT kind FROM anomalies;").fetchall()}
+        custody_actions = {r["action"] for r in conn.execute("SELECT action FROM custody_log;").fetchall()}
 
-    checks = {
-        "GT-01": "SAME_IDENTIFIER" in edge_types,
-        "GT-02": "PATTERN_FUNNEL" in edge_types,
-        "GT-03": "SAME_DEVICE" in edge_types,
-        "GT-04": "ANOMALY_CHAT_GAP" in anom_kinds,
-        "GT-05": "ANOMALY_OUT_OF_ORDER" in anom_kinds,
-        "GT-06": "ANOMALY_IMAGE_EDITED" in anom_kinds,
-        "GT-07": "SAME_MEDIA" in edge_types,
-        "GT-08": "ANOMALY_BALANCE_MISMATCH" in anom_kinds,
-        "GT-09": "SAME_PERSON_FUZZY" in edge_types,
-        "GT-10": "SPATIAL_THREAD" in anom_kinds,
-        "GT-11": "IMPOSSIBLE_TRAVEL" in anom_kinds,
-        "GT-12": "SHARED_IP_CROSS_SOURCE" in edge_types,
-        "GT-13": "TEMPORAL_CO_OCCURRENCE" in edge_types,
-        "GT-14": "CLOCK_OFFSET_RECORDED" in custody_actions,
-        "GT-15": "LOGIN_FROM_IP" in edge_types,
-    }
-    missing = [k for k, ok in checks.items() if not ok]
-    assert not missing, f"Missing planted facts: {missing}"
+        checks = {
+            "GT-01": "SAME_IDENTIFIER" in edge_types,
+            "GT-02": "PATTERN_FUNNEL" in edge_types,
+            "GT-03": "SAME_DEVICE" in edge_types,
+            "GT-04": "ANOMALY_CHAT_GAP" in anom_kinds,
+            "GT-05": "ANOMALY_OUT_OF_ORDER" in anom_kinds,
+            "GT-06": "ANOMALY_IMAGE_EDITED" in anom_kinds,
+            "GT-07": "SAME_MEDIA" in edge_types,
+            "GT-08": "ANOMALY_BALANCE_MISMATCH" in anom_kinds,
+            "GT-09": "SAME_PERSON_FUZZY" in edge_types,
+            "GT-10": "SPATIAL_THREAD" in anom_kinds,
+            "GT-11": "IMPOSSIBLE_TRAVEL" in anom_kinds,
+            "GT-12": "SHARED_IP_CROSS_SOURCE" in edge_types,
+            "GT-13": "TEMPORAL_CO_OCCURRENCE" in edge_types,
+            "GT-14": "CLOCK_OFFSET_RECORDED" in custody_actions,
+            "GT-15": "LOGIN_FROM_IP" in edge_types,
+        }
+        missing = [k for k, ok in checks.items() if not ok]
+        assert not missing, f"Missing planted facts: {missing}"
+    finally:
+        conn.close()
 
 
+@pytest.mark.integration
 def test_scene_endpoint_determinism():
     """Verify /api/scene returns identical deterministic output across repeated calls."""
     with TestClient(app) as client:

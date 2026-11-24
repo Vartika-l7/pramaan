@@ -174,14 +174,14 @@ export const EvidenceVaultPage: React.FC = () => {
   });
 
   return (
-    <div className="max-w-6xl mx-auto space-y-6 pb-12">
+    <div className="max-w-7xl mx-auto space-y-6 pb-12">
       <WorkspaceHeader
         workspace="evidence"
         title="Evidence Vault"
         subtitle="Content-addressed read-only exhibit storage. Files are SHA-256 hashed in streaming chunks at ingest and sealed in the custody chain."
         actions={
-          <div className="flex items-center gap-2">
-            <label className="inline-flex items-center gap-2 px-3 py-2 border border-teal text-teal bg-panel text-xs font-semibold rounded cursor-pointer hover:bg-teal-light transition-colors duration-150">
+          <div className="flex items-center gap-2.5">
+            <label className="inline-flex items-center gap-2 px-3.5 py-2 border border-[#B2CDD4] text-[#24525D] bg-white text-xs font-semibold rounded-md cursor-pointer hover:bg-[#EAF2F4] transition-colors duration-150 shadow-sm">
               <FolderUp className="w-3.5 h-3.5" aria-hidden="true" />
               <span>Upload Folder</span>
               <input
@@ -195,7 +195,7 @@ export const EvidenceVaultPage: React.FC = () => {
                 className="hidden"
               />
             </label>
-            <label className="inline-flex items-center gap-2 px-3.5 py-2 bg-teal text-white text-xs font-semibold rounded cursor-pointer hover:opacity-90 transition-opacity duration-150">
+            <label className="inline-flex items-center gap-2 px-4 py-2 bg-[#316A78] hover:bg-[#24525D] text-white text-xs font-semibold rounded-md cursor-pointer transition-colors duration-150 shadow-sm">
               <Upload className="w-3.5 h-3.5" aria-hidden="true" />
               <span>{uploadProgress || (uploadMutation.isPending ? 'Hashing…' : 'Upload Exhibit')}</span>
               <input type="file" multiple onChange={(e) => handleFileInput(e, false)} className="hidden" />
@@ -204,7 +204,7 @@ export const EvidenceVaultPage: React.FC = () => {
         }
       />
 
-      {/* Compact Drag-and-Drop Bar */}
+      {/* Forensic Ingest Dropzone */}
       <div
         onDragOver={(e) => {
           e.preventDefault();
@@ -212,42 +212,58 @@ export const EvidenceVaultPage: React.FC = () => {
         }}
         onDragLeave={() => setIsDragging(false)}
         onDrop={handleDrop}
-        className={`border border-dashed rounded px-5 py-4 flex flex-col sm:flex-row items-center justify-between gap-3 transition-colors duration-150 ${
-          isDragging ? 'border-teal bg-teal-light' : 'border-border-strong bg-panel hover:border-teal'
+        className={`border border-dashed rounded-xl px-6 py-4 flex flex-col sm:flex-row items-center justify-between gap-3 transition-all duration-150 ${
+          isDragging
+            ? 'border-[#316A78] bg-[#EAF2F4] shadow-card'
+            : 'border-[#C9C6BC] forensic-grid-bg hover:border-[#316A78]'
         }`}
       >
-        <div className="text-xs text-muted">
-          <span className="font-semibold text-ink">Drag and drop files or an evidence folder here</span> to compute SHA-256 on ingest (mobile, social media, CCTV, cloud, financial, email, network).
+        <div className="text-xs text-[#556077]">
+          <span className="font-semibold text-[#20283A]">Drag and drop files or an evidence folder here</span> to compute SHA-256 on ingest (mobile, social media, CCTV, cloud, financial, email, network).
         </div>
         {uploadProgress ? (
-          <span className="font-mono text-xs text-teal font-semibold">{uploadProgress}</span>
+          <span className="font-mono text-xs text-[#24525D] font-semibold">{uploadProgress}</span>
         ) : uploadMutation.data ? (
           <div className="flex items-center gap-2 text-xs">
-            <span className="text-approved font-semibold">Ingested:</span>
+            <span className="text-[#246B4F] font-semibold">Ingested:</span>
             <HashChip hash={uploadMutation.data.sha256} />
           </div>
         ) : null}
       </div>
 
-      {/* Source Family Filters */}
-      <div className="flex flex-wrap items-center gap-1.5" role="group" aria-label="Filter by source family">
-        {SOURCE_FAMILIES.map((fam) => (
-          <button
-            key={fam.id}
-            type="button"
-            onClick={() => setFamilyFilter(fam.id)}
-            className={`px-3 py-1 rounded text-xs font-medium border transition-colors duration-150 cursor-pointer ${
-              familyFilter === fam.id
-                ? 'bg-teal text-white border-teal'
-                : 'bg-panel text-muted border-border hover:text-ink hover:border-border-strong'
-            }`}
-          >
-            {fam.label}
-          </button>
-        ))}
+      {/* Source Family Filter Tabs */}
+      <div className="flex flex-wrap items-center gap-2" role="group" aria-label="Filter by source family">
+        {SOURCE_FAMILIES.map((fam) => {
+          const count =
+            fam.id === 'ALL'
+              ? (exhibits || []).length
+              : (exhibits || []).filter((ex) => fam.types.includes(ex.source_type)).length;
+          const active = familyFilter === fam.id;
+          return (
+            <button
+              key={fam.id}
+              type="button"
+              onClick={() => setFamilyFilter(fam.id)}
+              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold border transition-colors duration-150 cursor-pointer ${
+                active
+                  ? 'bg-[#20283A] text-white border-[#20283A] shadow-sm'
+                  : 'bg-white text-[#455066] border-[#E1DFD7] hover:text-[#20283A] hover:border-[#C9C6BC]'
+              }`}
+            >
+              <span>{fam.label}</span>
+              <span
+                className={`font-mono text-[10px] ${
+                  active ? 'text-[#9AD0DB]' : 'text-[#556077]'
+                }`}
+              >
+                {count}
+              </span>
+            </button>
+          );
+        })}
       </div>
 
-      {/* Dense Exhibits Table */}
+      {/* Dense Forensic Exhibits Ledger */}
       {isError ? (
         <ErrorState message="Failed to load exhibits." onRetry={() => refetch()} />
       ) : isLoading ? (
@@ -258,17 +274,17 @@ export const EvidenceVaultPage: React.FC = () => {
           description="Upload forensic files above or switch the source family filter to view registered exhibits."
         />
       ) : (
-        <div className="bg-panel border border-border rounded overflow-x-auto">
+        <div className="editorial-card overflow-x-auto">
           <table className="w-full text-left border-collapse text-xs">
-            <thead className="bg-paper-subtle border-b border-border text-[11px] font-semibold uppercase tracking-wider text-muted">
+            <thead className="bg-paper-subtle/80 border-b border-border text-[10.5px] font-bold uppercase tracking-[0.08em] text-muted">
               <tr>
-                <th className="py-2.5 px-3">Exhibit ID</th>
-                <th className="py-2.5 px-3">Filename</th>
-                <th className="py-2.5 px-3">Family / Type</th>
-                <th className="py-2.5 px-3">Size</th>
-                <th className="py-2.5 px-3">SHA-256</th>
-                <th className="py-2.5 px-3">Received (UTC)</th>
-                <th className="py-2.5 px-3">Parse Status</th>
+                <th className="py-3 px-4">Exhibit ID</th>
+                <th className="py-3 px-4">Filename</th>
+                <th className="py-3 px-4">Family / Type</th>
+                <th className="py-3 px-4">Size</th>
+                <th className="py-3 px-4">SHA-256</th>
+                <th className="py-3 px-4">Received (UTC)</th>
+                <th className="py-3 px-4">Parse Status</th>
               </tr>
             </thead>
             <tbody>
@@ -281,24 +297,24 @@ export const EvidenceVaultPage: React.FC = () => {
                   }}
                   className={`ledger-row cursor-pointer ${selectedExhibit === ex.id ? 'bg-teal-light/60' : ''}`}
                 >
-                  <td className="py-2.5 px-3">
+                  <td className="py-3 px-4">
                     <ExhibitChip exhibitId={ex.exhibit_id} />
                   </td>
-                  <td className="py-2.5 px-3 font-medium text-ink">{ex.filename}</td>
-                  <td className="py-2.5 px-3 text-muted">
+                  <td className="py-3 px-4 font-semibold text-ink">{ex.filename}</td>
+                  <td className="py-3 px-4 text-muted">
                     {familyForType(ex.source_type)} <span className="font-mono text-[11px]">({ex.source_type})</span>
                   </td>
-                  <td className="py-2.5 px-3 font-mono text-muted">
+                  <td className="py-3 px-4 font-mono text-muted">
                     {(ex.size_bytes / 1024).toFixed(1)} KB
                   </td>
-                  <td className="py-2.5 px-3" onClick={(e) => e.stopPropagation()}>
+                  <td className="py-3 px-4" onClick={(e) => e.stopPropagation()}>
                     <HashChip hash={ex.sha256} />
                   </td>
-                  <td className="py-2.5 px-3 font-mono text-muted">
+                  <td className="py-3 px-4 font-mono text-muted">
                     {ex.received_at_utc?.slice(0, 19).replace('T', ' ')}
                   </td>
-                  <td className="py-2.5 px-3">
-                    <span className="font-mono text-[11px] px-2 py-0.5 rounded border border-teal-border bg-teal-light text-teal font-semibold">
+                  <td className="py-3 px-4">
+                    <span className="font-mono text-[10.5px] px-2.5 py-0.5 rounded-full border border-teal-border bg-teal-light text-teal font-semibold">
                       {ex.parse_status || 'PENDING'}
                     </span>
                   </td>
@@ -311,12 +327,12 @@ export const EvidenceVaultPage: React.FC = () => {
 
       {/* Detail Drawer */}
       {selectedExhibit && (
-        <div className="fixed inset-0 z-50 flex justify-end bg-ink/35" role="dialog" aria-label="Exhibit Details">
-          <div className="w-full max-w-2xl bg-panel h-full border-l border-border-strong flex flex-col">
-            <div className="h-14 border-b border-border px-5 flex items-center justify-between bg-paper">
-              <div className="flex items-center gap-2.5">
+        <div className="fixed inset-0 z-50 flex justify-end bg-obsidian/45 backdrop-blur-[2px]" role="dialog" aria-label="Exhibit Details">
+          <div className="w-full max-w-2xl bg-panel h-full border-l border-border-strong shadow-popover flex flex-col">
+            <div className="h-16 border-b border-border px-6 flex items-center justify-between bg-paper/90">
+              <div className="flex items-center gap-2.5 min-w-0">
                 <span className="exhibit-id">{detailData?.exhibit_id || 'EXH'}</span>
-                <h2 className="font-serif text-base font-bold text-ink truncate">
+                <h2 className="font-serif text-xl text-ink truncate">
                   {detailData?.filename || 'Loading exhibit…'}
                 </h2>
               </div>
@@ -324,7 +340,7 @@ export const EvidenceVaultPage: React.FC = () => {
                 type="button"
                 onClick={() => setSelectedExhibit(null)}
                 aria-label="Close Exhibit Drawer"
-                className="p-1.5 rounded hover:bg-paper-subtle text-muted hover:text-ink cursor-pointer"
+                className="p-1.5 rounded-full hover:bg-paper-subtle text-muted hover:text-ink cursor-pointer"
               >
                 <X className="w-4 h-4" />
               </button>

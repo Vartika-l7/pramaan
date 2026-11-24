@@ -54,7 +54,7 @@ export const ExplainPanel: React.FC<ExplainPanelProps> = ({
   const who = explain.who_approved || { approved: false, label: 'not yet approved' };
 
   return (
-    <div className="border border-border rounded bg-paper text-xs">
+    <div className="border border-border rounded-lg bg-paper/80 text-xs overflow-hidden">
       <button
         type="button"
         onClick={(e) => {
@@ -63,23 +63,23 @@ export const ExplainPanel: React.FC<ExplainPanelProps> = ({
         }}
         aria-expanded={open}
         className={`w-full flex items-center justify-between gap-2 ${
-          compact ? 'px-2.5 py-1.5' : 'px-3 py-2'
-        } text-left text-muted hover:text-ink cursor-pointer transition-colors duration-150`}
+          compact ? 'px-3 py-2' : 'px-3.5 py-2.5'
+        } text-left text-ink-secondary hover:text-ink hover:bg-paper-subtle/60 cursor-pointer transition-colors duration-150`}
       >
-        <span className="inline-flex items-center gap-1.5 font-medium">
-          <Info className="w-3.5 h-3.5 text-teal shrink-0" aria-hidden="true" />
+        <span className="inline-flex items-center gap-1.5 font-semibold">
+          <Info className="w-3.5 h-3.5 text-violet shrink-0" aria-hidden="true" />
           <span>{label}</span>
           {said.ai_run_id && (
-            <span className="font-mono text-[10px] text-muted">({said.model_name})</span>
+            <span className="font-mono text-[10px] text-muted font-normal">({said.model_name})</span>
           )}
         </span>
-        {open ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+        {open ? <ChevronUp className="w-3.5 h-3.5 text-muted" /> : <ChevronDown className="w-3.5 h-3.5 text-muted" />}
       </button>
 
       {open && (
         <div
           onClick={(e) => e.stopPropagation()}
-          className="border-t border-border p-3 space-y-3 bg-panel text-xs"
+          className="border-t border-border p-3.5 space-y-3.5 bg-panel text-xs"
         >
           {/* 1. What the model saw */}
           <div className="space-y-1">

@@ -31,9 +31,10 @@ backend/keys/
 backend/case_data/
 backend/evidence_store/
 
-# Offline bundles & release archives
+# Offline bundles, release archives & archived stale builds
 offline_bundle/
 release/
+_old_project_archive/
 
 # Pytest / Test artifacts
 .pytest_cache/

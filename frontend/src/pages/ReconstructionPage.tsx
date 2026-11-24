@@ -232,18 +232,18 @@ export const ReconstructionPage: React.FC = () => {
         subtitle="Synchronized event sequence, offline spatial coordinate canvas, and step-by-step scene replay."
         actions={
           <div className="flex items-center gap-2">
-            <div className="inline-flex rounded border border-border bg-panel p-0.5 text-xs">
+            <div className="inline-flex rounded-md border border-[#C9C6BC] bg-white p-0.5 text-xs">
               <button
                 type="button"
                 onClick={() => setLaneMode('source')}
-                className={`px-2.5 py-1 rounded cursor-pointer ${laneMode === 'source' ? 'bg-amber text-white font-semibold' : 'text-muted'}`}
+                className={`px-3 py-1 rounded cursor-pointer transition-colors ${laneMode === 'source' ? 'bg-[#316A78] text-white font-semibold' : 'text-[#556077] hover:text-[#20283A]'}`}
               >
                 By Source
               </button>
               <button
                 type="button"
                 onClick={() => setLaneMode('actor')}
-                className={`px-2.5 py-1 rounded cursor-pointer ${laneMode === 'actor' ? 'bg-amber text-white font-semibold' : 'text-muted'}`}
+                className={`px-3 py-1 rounded cursor-pointer transition-colors ${laneMode === 'actor' ? 'bg-[#316A78] text-white font-semibold' : 'text-[#556077] hover:text-[#20283A]'}`}
               >
                 By Actor
               </button>
@@ -254,9 +254,9 @@ export const ReconstructionPage: React.FC = () => {
                 await generateSequence();
                 refetchSequence();
               }}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded border border-border bg-panel text-xs font-medium text-ink hover:border-amber cursor-pointer"
+              className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-md border border-[#C9C6BC] bg-white text-xs font-semibold text-[#20283A] hover:border-[#316A78] hover:text-[#24525D] cursor-pointer transition-colors"
             >
-              <RefreshCw className="w-3.5 h-3.5 text-amber" />
+              <RefreshCw className="w-3.5 h-3.5 text-[#316A78]" />
               <span>Regenerate Sequence</span>
             </button>
           </div>
@@ -264,8 +264,8 @@ export const ReconstructionPage: React.FC = () => {
       />
 
       {/* Filters Bar */}
-      <div className="bg-panel border border-border rounded p-3 flex flex-wrap items-center gap-3 text-xs">
-        <div className="flex items-center gap-1.5 px-2.5 py-1 border border-border rounded bg-paper flex-1 min-w-[180px]">
+      <div className="editorial-card p-3.5 flex flex-wrap items-center gap-3 text-xs">
+        <div className="flex items-center gap-1.5 px-3 py-1.5 border border-border rounded-full bg-paper flex-1 min-w-[180px] focus-within:border-amber transition-colors">
           <Search className="w-3.5 h-3.5 text-muted" />
           <input
             type="text"
@@ -326,8 +326,8 @@ export const ReconstructionPage: React.FC = () => {
       </div>
 
       {/* AREA 1: EVENT SEQUENCE TIMELINE */}
-      <section className="bg-panel border border-border rounded p-4 space-y-3">
-        <div className="flex items-center justify-between border-b border-border pb-2">
+      <section className="editorial-card p-5 space-y-3">
+        <div className="flex items-center justify-between border-b border-border pb-2.5">
           <span className="section-label">1. Event Sequence Timeline ({filteredEvents.length} events)</span>
           <span className="font-mono text-[11px] text-muted">Click any event to open Source Viewer</span>
         </div>
@@ -346,8 +346,8 @@ export const ReconstructionPage: React.FC = () => {
       {/* AREA 2 & 3: LOCATIONS CANVAS + SCENE REPLAY */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
         {/* AREA 2: LOCATIONS PANEL (Plain offline coordinate canvas) */}
-        <section className="lg:col-span-5 bg-panel border border-border rounded p-4 space-y-3">
-          <div className="flex items-center justify-between border-b border-border pb-2">
+        <section className="lg:col-span-5 editorial-card p-5 space-y-3">
+          <div className="flex items-center justify-between border-b border-border pb-2.5">
             <span className="section-label flex items-center gap-1.5">
               <MapPin className="w-3.5 h-3.5 text-amber" />
               2. Locations (Offline Coordinate Canvas)
@@ -361,13 +361,13 @@ export const ReconstructionPage: React.FC = () => {
               description="Spatial observations with lat/lon from CDR towers, cloud logs, or EXIF will appear on this coordinate grid."
             />
           ) : (
-            <svg viewBox="0 0 400 230" className="w-full h-56 bg-paper border border-border rounded" role="img" aria-label="Spatial observations coordinate plot">
+            <svg viewBox="0 0 400 230" className="w-full h-56 forensic-grid-bg border border-border rounded-xl" role="img" aria-label="Spatial observations coordinate plot">
               {/* Grid lines only (no map tiles or outlines) */}
               {[60, 120, 180].map((y) => (
-                <line key={`hy-${y}`} x1="20" y1={y} x2="380" y2={y} stroke="#E8D9CC" strokeDasharray="3 3" />
+                <line key={`hy-${y}`} x1="20" y1={y} x2="380" y2={y} stroke="#CBD0E0" strokeDasharray="3 3" />
               ))}
               {[100, 200, 300].map((x) => (
-                <line key={`vx-${x}`} x1={x} y1="20" x2={x} y2="210" stroke="#E8D9CC" strokeDasharray="3 3" />
+                <line key={`vx-${x}`} x1={x} y1="20" x2={x} y2="210" stroke="#CBD0E0" strokeDasharray="3 3" />
               ))}
               {/* Movement lines */}
               {projectedPoints.map((pt: any, i: number) => {
@@ -381,7 +381,7 @@ export const ReconstructionPage: React.FC = () => {
                     y1={prev.y}
                     x2={pt.x}
                     y2={pt.y}
-                    stroke={isImpossible ? '#DB4A2B' : '#C97B1A'}
+                    stroke={isImpossible ? '#D95749' : '#5576A5'}
                     strokeWidth={isImpossible ? 2 : 1.5}
                     strokeDasharray={isImpossible ? '4 2' : undefined}
                   />
@@ -402,18 +402,18 @@ export const ReconstructionPage: React.FC = () => {
                       cx={pt.x}
                       cy={pt.y}
                       r={Math.min(26, Math.max(8, (pt.accuracy_m || 200) / 50))}
-                      fill={isImpossible ? '#DB4A2B' : '#C97B1A'}
+                      fill={isImpossible ? '#D95749' : '#5576A5'}
                       fillOpacity={0.14}
-                      stroke={isImpossible ? '#DB4A2B' : '#C97B1A'}
+                      stroke={isImpossible ? '#D95749' : '#5576A5'}
                       strokeOpacity={0.45}
                     />
                     <circle
                       cx={pt.x}
                       cy={pt.y}
                       r={isActive ? 6 : 4}
-                      fill={isImpossible ? '#DB4A2B' : isActive ? '#2E5E6E' : '#C97B1A'}
+                      fill={isImpossible ? '#D95749' : isActive ? '#316A78' : '#5576A5'}
                     />
-                    <text x={pt.x + 7} y={pt.y + 3} fontSize="9" fill="#2B1B17" fontFamily="IBM Plex Mono, monospace">
+                    <text x={pt.x + 7} y={pt.y + 3} fontSize="9" fill="#20283A" fontFamily="IBM Plex Mono, monospace">
                       {pt.place_name || pt.location_id || `Pt ${i + 1}`}
                     </text>
                   </g>
@@ -424,7 +424,7 @@ export const ReconstructionPage: React.FC = () => {
         </section>
 
         {/* AREA 3: SCENE REPLAY CONTROL */}
-        <section className="lg:col-span-7 bg-panel border border-border rounded p-4 space-y-3">
+        <section className="lg:col-span-7 editorial-card p-5 space-y-3">
           <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border pb-2">
             <span className="section-label flex items-center gap-1.5">
               <Play className="w-3.5 h-3.5 text-amber" />
@@ -531,7 +531,7 @@ export const ReconstructionPage: React.FC = () => {
 
       {/* Key Timeline & Spatio-Temporal Anomalies + Clock Offsets + Episodes */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
-        <section className="lg:col-span-7 bg-panel border border-border rounded p-4 space-y-3">
+        <section className="lg:col-span-7 editorial-card p-5 space-y-3">
           <div className="flex items-center justify-between border-b border-border pb-2">
             <span className="section-label flex items-center gap-1.5">
               <AlertTriangle className="w-3.5 h-3.5 text-vermilion" />
@@ -593,7 +593,7 @@ export const ReconstructionPage: React.FC = () => {
           )}
         </section>
 
-        <section className="lg:col-span-5 bg-panel border border-border rounded p-4 space-y-3">
+        <section className="lg:col-span-5 editorial-card p-5 space-y-3">
           <div className="flex items-center justify-between border-b border-border pb-2">
             <span className="section-label">Generated Episodes ({sequenceData?.episode_count || 0})</span>
             <a
@@ -633,7 +633,7 @@ export const ReconstructionPage: React.FC = () => {
       </div>
 
       {/* Synced Event & Episode List (with Original vs Corrected Time) */}
-      <section className="bg-panel border border-border rounded p-4 space-y-3">
+      <section className="editorial-card p-5 space-y-3">
         <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border pb-2">
           <span className="section-label">Chronological Steps &amp; Clock Offsets ({displayedStepEvents.length})</span>
           <div className="flex items-center gap-3">

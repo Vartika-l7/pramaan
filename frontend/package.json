@@ -9,8 +9,13 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@fontsource/dm-serif-display": "5.3.0",
     "@fontsource/ibm-plex-mono": "5.1.0",
     "@fontsource/ibm-plex-sans": "5.1.0",
+    "@fontsource/instrument-serif": "5.3.0",
+    "@fontsource/jetbrains-mono": "5.3.0",
+    "@fontsource/manrope": "5.3.0",
+    "@fontsource/plus-jakarta-sans": "5.3.0",
     "@fontsource/source-serif-4": "5.1.0",
     "@radix-ui/react-dialog": "1.1.2",
     "@radix-ui/react-dropdown-menu": "2.1.2",
@@ -44,4 +49,3 @@
     "vite": "^5.4.9"
   }
 }
-

@@ -169,20 +169,20 @@ export const ReviewAndReportPage: React.FC = () => {
   const pct = totalReviewable > 0 ? Math.round((approvedCount / totalReviewable) * 100) : 0;
 
   return (
-    <div className="max-w-6xl mx-auto space-y-6 pb-12">
+    <div className="max-w-7xl mx-auto space-y-6 pb-12">
       <WorkspaceHeader
         workspace="evidence"
         title="Review and Report"
         subtitle="The single admissibility gate: nothing from Investigation enters the court report until a human approves it here."
       />
 
-      {/* 3-Step Flow Stepper */}
-      <div className="flex flex-wrap items-center justify-between gap-4 border-b border-border pb-3">
-        <div className="flex items-center gap-2" role="tablist" aria-label="Review and Report Steps">
+      {/* 3-Step Editorial Flow Stepper */}
+      <div className="editorial-card px-5 py-3.5 flex flex-wrap items-center justify-between gap-4">
+        <div className="flex flex-wrap items-center gap-2" role="tablist" aria-label="Review and Report Steps">
           {[
-            { id: 'queue', num: '1', label: `Review Queue (${items.length})` },
-            { id: 'package', num: '2', label: 'Court Package' },
-            { id: 'verify', num: '3', label: 'Verify & Trust Report' },
+            { id: 'queue', num: '01', label: `Review Queue (${items.length})` },
+            { id: 'package', num: '02', label: 'Court Package' },
+            { id: 'verify', num: '03', label: 'Verify & Trust Report' },
           ].map((s) => (
             <button
               key={s.id}
@@ -190,13 +190,15 @@ export const ReviewAndReportPage: React.FC = () => {
               role="tab"
               aria-selected={step === s.id}
               onClick={() => switchStep(s.id as Step)}
-              className={`inline-flex items-center gap-2 px-3.5 py-1.5 rounded text-xs font-semibold border transition-colors duration-150 cursor-pointer ${
+              className={`inline-flex items-center gap-2 px-3.5 py-2 rounded-md text-xs font-semibold border transition-colors duration-150 cursor-pointer ${
                 step === s.id
-                  ? 'bg-teal text-white border-teal'
-                  : 'bg-panel text-muted border-border hover:text-ink'
+                  ? 'bg-[#20283A] text-white border-[#20283A] shadow-sm'
+                  : 'bg-[#F5F4F0] text-[#455066] border-[#E1DFD7] hover:text-[#20283A] hover:border-[#C9C6BC]'
               }`}
             >
-              <span className="font-mono">{s.num}.</span>
+              <span className={`font-mono text-[10.5px] ${step === s.id ? 'text-[#9AD0DB]' : 'text-[#556077]'}`}>
+                {s.num}
+              </span>
               <span>{s.label}</span>
             </button>
           ))}
@@ -204,11 +206,11 @@ export const ReviewAndReportPage: React.FC = () => {
 
         {/* Progress */}
         <div className="flex items-center gap-3 text-xs">
-          <span className="font-mono text-muted">
-            Approved: <strong className="text-ink">{approvedCount}</strong> / {totalReviewable} ({pct}%)
+          <span className="font-mono text-[#556077]">
+            Approved: <strong className="text-[#20283A]">{approvedCount}</strong> / {totalReviewable} ({pct}%)
           </span>
-          <div className="w-28 h-2 bg-paper-subtle border border-border rounded overflow-hidden">
-            <div className="h-full bg-approved transition-all duration-150" style={{ width: `${pct}%` }} />
+          <div className="w-32 h-2 bg-[#ECEAE3] border border-[#E1DFD7] rounded-full overflow-hidden">
+            <div className="h-full bg-[#246B4F] rounded-full transition-all duration-200" style={{ width: `${pct}%` }} />
           </div>
         </div>
       </div>
@@ -267,7 +269,7 @@ export const ReviewAndReportPage: React.FC = () => {
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
               {/* Left: Claim/Lead list + active item */}
               <div className="lg:col-span-6 space-y-4">
-                <div className="bg-panel border border-border rounded p-4 space-y-3">
+                <div className="editorial-card p-5 space-y-3.5">
                   <div className="flex items-center justify-between border-b border-border pb-2">
                     <span className="section-label">
                       Item {selectedIndex + 1} of {items.length} ({currentItem.item_type})
@@ -364,7 +366,7 @@ export const ReviewAndReportPage: React.FC = () => {
               </div>
 
               {/* Right: Underlying Source */}
-              <div className="lg:col-span-6 bg-panel border border-border rounded p-4 space-y-3">
+              <div className="lg:col-span-6 editorial-card p-5 space-y-3.5">
                 <div className="flex items-center justify-between border-b border-border pb-2">
                   <span className="section-label">Cited Source Record</span>
                   {sourceContext?.exhibit_id && (
@@ -406,27 +408,27 @@ export const ReviewAndReportPage: React.FC = () => {
       {/* STEP 2: COURT PACKAGE PREVIEW & BUILD */}
       {step === 'package' && (
         <div className="space-y-5">
-          <div className="bg-panel border border-border rounded p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-            <div className="space-y-1">
-              <h2 className="font-serif text-lg font-bold text-ink">Signed Court Package (.ZIP)</h2>
-              <p className="text-xs text-muted">
-                Includes approved findings only, exhibit manifest, Ed25519 signature, Section 63 draft certificate, and offline <code className="font-mono">verifier.py</code>.
+          <div className="obsidian-card text-white rounded-xl p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-obsidian border border-[#32405A]">
+            <div className="space-y-1.5">
+              <h2 className="font-serif text-3xl text-white leading-none">Signed Court Package (.ZIP)</h2>
+              <p className="text-xs text-[#D5DFEC] max-w-xl">
+                Includes approved findings only, exhibit manifest, Ed25519 signature, Section 63 draft certificate, and offline <code className="font-mono text-[#9AD0DB]">verifier.py</code>.
               </p>
             </div>
-            <div className="flex flex-wrap items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2.5">
               <button
                 type="button"
                 disabled={buildMutation.isPending}
                 onClick={() => buildMutation.mutate()}
-                className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded bg-teal text-white text-xs font-semibold cursor-pointer"
+                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-md bg-white text-[#20283A] hover:bg-[#EAF2F4] text-xs font-bold cursor-pointer transition-colors"
               >
-                <Package className={`w-3.5 h-3.5 ${buildMutation.isPending ? 'animate-spin' : ''}`} />
+                <Package className={`w-3.5 h-3.5 text-[#316A78] ${buildMutation.isPending ? 'animate-spin' : ''}`} />
                 <span>{buildMutation.isPending ? 'Building…' : 'Build Package'}</span>
               </button>
               <a
                 href="/api/report/download"
                 download
-                className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded bg-vermilion text-white text-xs font-semibold"
+                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-md bg-[#316A78] hover:bg-[#24525D] text-white text-xs font-semibold transition-colors"
               >
                 <HardDriveDownload className="w-3.5 h-3.5" />
                 <span>Download ZIP</span>
@@ -435,7 +437,7 @@ export const ReviewAndReportPage: React.FC = () => {
                 href="/api/report/pdf"
                 target="_blank"
                 rel="noreferrer"
-                className="inline-flex items-center gap-1.5 px-3 py-2 rounded border border-border bg-paper text-ink text-xs font-medium"
+                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-md bg-white/10 border border-white/30 text-white hover:bg-white/20 text-xs font-semibold transition-colors"
               >
                 <span>View PDF</span>
                 <ExternalLink className="w-3 h-3" />
@@ -448,7 +450,7 @@ export const ReviewAndReportPage: React.FC = () => {
           ) : (
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
               {/* Approved Findings Table */}
-              <div className="lg:col-span-8 bg-panel border border-border rounded p-5 space-y-4">
+              <div className="lg:col-span-8 editorial-card p-6 space-y-4">
                 <div className="flex items-center justify-between border-b border-border pb-2.5">
                   <h3 className="font-serif text-base font-bold text-ink">
                     Approved Findings ({(previewData?.approved_claims?.length || 0) + (previewData?.approved_edges?.length || 0)})
@@ -538,17 +540,17 @@ export const ReviewAndReportPage: React.FC = () => {
       {step === 'verify' && (
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
           {/* Standalone Verifier */}
-          <div className="lg:col-span-7 bg-panel border border-border rounded p-5 space-y-4">
+          <div className="lg:col-span-7 editorial-card p-6 space-y-4">
             <div className="flex items-center justify-between border-b border-border pb-3">
               <div className="flex items-center gap-2">
                 <Terminal className="w-4 h-4 text-teal" />
-                <h2 className="font-serif text-base font-bold text-ink">Standalone Offline Verifier</h2>
+                <h2 className="font-serif text-2xl text-ink leading-none">Standalone Offline Verifier</h2>
               </div>
               <button
                 type="button"
                 disabled={verifyMutation.isPending}
                 onClick={() => verifyMutation.mutate()}
-                className="px-3.5 py-1.5 rounded bg-teal text-white text-xs font-semibold cursor-pointer"
+                className="px-4 py-2 rounded-md bg-[#316A78] hover:bg-[#24525D] text-white text-xs font-semibold cursor-pointer transition-colors"
               >
                 {verifyMutation.isPending ? 'Running verifier.py…' : 'Run verifier.py'}
               </button>

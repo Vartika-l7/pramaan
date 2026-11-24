@@ -22,16 +22,20 @@ def get_system_capabilities():
     """Retrieve live status of offline AI models, OCR engines, and PDF parsers."""
     import httpx
 
-    # 1. Ollama status
+    # 1. Ollama status (skip live probe when deterministic fake-LLM mode is active)
     ollama_ok = False
     ollama_models = []
-    try:
-        r = httpx.get(f"{OLLAMA_HOST}/api/tags", timeout=1.0)
-        if r.status_code == 200:
-            ollama_ok = True
-            ollama_models = [m.get("name") for m in r.json().get("models", [])]
-    except Exception:
-        pass
+    if os.getenv("PRAMAAN_FAKE_LLM", "0") != "1":
+        try:
+            r = httpx.get(
+                f"{OLLAMA_HOST}/api/tags",
+                timeout=httpx.Timeout(2.0, connect=2.0),
+            )
+            if r.status_code == 200:
+                ollama_ok = True
+                ollama_models = [m.get("name") for m in r.json().get("models", [])]
+        except Exception:
+            pass
 
     # 2. Tesseract OCR status
     tesseract_ok = False

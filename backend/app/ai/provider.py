@@ -3,12 +3,17 @@
 from __future__ import annotations
 
 import json
+import os
 from abc import ABC, abstractmethod
 from typing import Any, Dict, List
 import httpx
 
 from backend.app.config import OLLAMA_HOST, PRIMARY_MODEL
 from backend.app.correlate.base import deterministic_id
+
+OLLAMA_CONNECT_TIMEOUT = float(os.getenv("OLLAMA_CONNECT_TIMEOUT", "2.0"))
+OLLAMA_HEALTH_TIMEOUT = httpx.Timeout(2.0, connect=OLLAMA_CONNECT_TIMEOUT)
+OLLAMA_GENERATE_TIMEOUT = httpx.Timeout(15.0, connect=OLLAMA_CONNECT_TIMEOUT)
 
 
 class AIProvider(ABC):
@@ -40,13 +45,17 @@ class OllamaProvider(AIProvider):
         self.last_raw_output = ""
 
     def is_available(self) -> bool:
+        if os.getenv("PRAMAAN_FAKE_LLM", "0") == "1":
+            return False
         try:
-            r = httpx.get(f"{self.host}/api/tags", timeout=1.5)
+            r = httpx.get(f"{self.host}/api/tags", timeout=OLLAMA_HEALTH_TIMEOUT)
             return r.status_code == 200
         except Exception:
             return False
 
     def draft_claims(self, context_records: Dict[str, Any]) -> List[Dict[str, Any]]:
+        if os.getenv("PRAMAAN_FAKE_LLM", "0") == "1":
+            return []
         prompt = (
             "You are a forensic analyst. Based ONLY on the structured records provided below, "
             "propose factual claims. Every claim MUST reference specific record IDs and include exact quotes. "
@@ -65,7 +74,7 @@ class OllamaProvider(AIProvider):
                     "stream": False,
                     "options": {"temperature": 0, "seed": 42},
                 },
-                timeout=30.0,
+                timeout=OLLAMA_GENERATE_TIMEOUT,
             )
             if r.status_code == 200:
                 data = r.json()
@@ -157,6 +166,8 @@ class DeterministicProvider(AIProvider):
 
 
 def get_ai_provider() -> AIProvider:
+    if os.getenv("PRAMAAN_FAKE_LLM", "0") == "1":
+        return DeterministicProvider()
     ollama = OllamaProvider()
     if ollama.is_available():
         return ollama

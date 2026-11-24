@@ -62,13 +62,13 @@ export const SourceViewer: React.FC = () => {
   };
 
   return (
-    <div className="fixed inset-0 z-50 overflow-hidden flex justify-end bg-ink/35" role="dialog" aria-label="Source Viewer">
-      <div className="w-full max-w-2xl bg-panel h-full border-l border-border-strong flex flex-col">
+    <div className="fixed inset-0 z-50 overflow-hidden flex justify-end bg-obsidian/45 backdrop-blur-[2px]" role="dialog" aria-label="Source Viewer">
+      <div className="w-full max-w-2xl bg-panel h-full border-l border-border-strong shadow-popover flex flex-col">
         {/* Header */}
-        <div className="h-14 border-b border-border px-5 flex items-center justify-between bg-paper">
+        <div className="h-16 border-b border-border px-6 flex items-center justify-between bg-paper/90">
           <div className="flex items-center gap-2.5">
             <FileCode className="w-4 h-4 text-teal" aria-hidden="true" />
-            <h3 className="font-serif font-bold text-base text-ink">
+            <h3 className="font-serif text-xl text-ink">
               Evidence Source Record
             </h3>
             {sourceData?.exhibit_id && (
@@ -79,7 +79,7 @@ export const SourceViewer: React.FC = () => {
             type="button"
             onClick={closeSourceViewer}
             aria-label="Close Source Viewer"
-            className="p-1.5 hover:bg-paper-subtle rounded text-muted hover:text-ink transition-colors duration-150 cursor-pointer"
+            className="p-1.5 hover:bg-paper-subtle rounded-full text-muted hover:text-ink transition-colors duration-150 cursor-pointer"
           >
             <X className="w-4 h-4" />
           </button>

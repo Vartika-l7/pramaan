@@ -26,13 +26,13 @@ export const App: React.FC = () => {
   return (
     <QueryClientProvider client={queryClient}>
       <BrowserRouter>
-        <div className="flex h-screen w-screen overflow-hidden bg-paper text-ink">
+        <div className="flex h-screen w-screen overflow-hidden pramaan-canvas text-ink">
           <LeftRail />
 
           <div className="flex-1 flex flex-col h-full overflow-hidden">
             <CaseBar />
 
-            <main className="flex-1 overflow-y-auto p-6">
+            <main className="flex-1 overflow-y-auto px-6 py-7 lg:px-10 lg:py-8">
               <Routes>
                 <Route path="/" element={<OverviewPage />} />
                 <Route path="/evidence" element={<EvidenceVaultPage />} />

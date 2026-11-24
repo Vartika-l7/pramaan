@@ -1,3 +1,13 @@
+/* Offline-bundled editorial & technical typography */
+@import '@fontsource/dm-serif-display/400.css';
+@import '@fontsource/dm-serif-display/400-italic.css';
+@import '@fontsource/plus-jakarta-sans/400.css';
+@import '@fontsource/plus-jakarta-sans/500.css';
+@import '@fontsource/plus-jakarta-sans/600.css';
+@import '@fontsource/plus-jakarta-sans/700.css';
+@import '@fontsource/jetbrains-mono/400.css';
+@import '@fontsource/jetbrains-mono/500.css';
+@import '@fontsource/jetbrains-mono/600.css';
 @import '@fontsource/source-serif-4/400.css';
 @import '@fontsource/source-serif-4/600.css';
 @import '@fontsource/source-serif-4/700.css';
@@ -15,31 +25,39 @@
 
 @layer base {
   :root {
-    --bg-paper: #FBF8F3;
+    --bg-paper: #F5F4F0;
     --bg-panel: #FFFFFF;
-    --bg-subtle: #F4EFE6;
-    --border-hairline: #E8D9CC;
-    --border-strong: #D3BEAE;
-    --ink: #2B1B17;
-    --muted: #7A5C52;
+    --bg-subtle: #ECEAE3;
+    --bg-obsidian: #20283A;
+    --border-hairline: #E1DFD7;
+    --border-strong: #C9C6BC;
+    --ink: #20283A;
+    --muted: #556077;
 
-    --vermilion: #DB4A2B;
-    --vermilion-hover: #B83A1F;
-    --vermilion-light: #FDF0EC;
+    --teal: #316A78;
+    --teal-dark: #24525D;
+    --teal-light: #EAF2F4;
+    --teal-border: #B2CDD4;
 
-    --teal: #2E5E6E;
-    --teal-light: #EDF4F6;
-    --teal-border: #B8D0D8;
+    --slate: #5576A5;
+    --slate-light: #EEF2F8;
+    --slate-border: #C1CFE4;
 
-    --amber: #C97B1A;
-    --amber-light: #FCF4E8;
-    --amber-border: #E8C99B;
+    --amber: #9A6819;
+    --amber-fill: #D59A45;
+    --amber-light: #FCF5E7;
+    --amber-border: #E8CFA0;
 
-    --approved: #3F7D58;
-    --approved-light: #EEF6F1;
-    --approved-border: #B4D4C0;
+    --vermilion: #C74437;
+    --vermilion-fill: #D95749;
+    --vermilion-hover: #A63327;
+    --vermilion-light: #FDF0EE;
 
-    --radius: 6px;
+    --approved: #246B4F;
+    --approved-light: #ECF6F1;
+    --approved-border: #B2D9C7;
+
+    --radius: 8px;
     --transition-fast: 150ms cubic-bezier(0.2, 0, 0, 1);
   }
 
@@ -50,32 +68,65 @@
   body {
     background-color: var(--bg-paper);
     color: var(--ink);
-    font-family: 'IBM Plex Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+    font-family: 'Plus Jakarta Sans', 'IBM Plex Sans', -apple-system, BlinkMacSystemFont, sans-serif;
     font-size: 14px;
-    line-height: 1.5;
+    line-height: 1.55;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
   }
 
-  h1, h2, h3, h4, .font-serif {
-    font-family: 'Source Serif 4', Georgia, serif;
-    letter-spacing: -0.015em;
+  h1, h2, .font-serif {
+    font-family: 'DM Serif Display', 'Source Serif 4', Georgia, serif;
+    letter-spacing: -0.02em;
+    font-weight: 400;
   }
 
   code, pre, .font-mono {
-    font-family: 'IBM Plex Mono', monospace;
+    font-family: 'JetBrains Mono', 'IBM Plex Mono', monospace;
     font-variant-numeric: tabular-nums;
   }
 
   *:focus-visible {
-    outline: 2px solid var(--vermilion);
+    outline: 2px solid var(--teal);
     outline-offset: 2px;
   }
 }
 
+/* Warm pearl workspace canvas with subtle atmospheric depth */
+.pramaan-canvas {
+  background-color: var(--bg-paper);
+  background-image:
+    radial-gradient(860px 380px at 90% -6%, rgba(85, 118, 165, 0.06), transparent 60%),
+    radial-gradient(640px 320px at 10% 0%, rgba(49, 106, 120, 0.055), transparent 55%);
+}
+
+/* Subtle dot grid for analytical canvases */
+.forensic-grid-bg {
+  background-color: #FAF9F6;
+  background-image: radial-gradient(rgba(32, 40, 58, 0.09) 1px, transparent 1px);
+  background-size: 18px 18px;
+}
+
+/* Refined midnight-blue/ink hero card surface (#20283A) */
+.obsidian-card {
+  background:
+    radial-gradient(460px 240px at 96% 0%, rgba(49, 106, 120, 0.30), transparent 65%),
+    radial-gradient(360px 220px at 4% 100%, rgba(85, 118, 165, 0.22), transparent 60%),
+    #20283A;
+}
+
+/* Elevated architectural card */
+.editorial-card {
+  background-color: var(--bg-panel);
+  border: 1px solid var(--border-hairline);
+  border-radius: 12px;
+  box-shadow: 0 1px 2px rgba(32, 40, 58, 0.04), 0 6px 18px -12px rgba(32, 40, 58, 0.10);
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+}
+
 .section-label {
-  font-family: 'IBM Plex Sans', sans-serif;
-  font-size: 0.7rem;
+  font-family: 'Plus Jakarta Sans', 'IBM Plex Sans', sans-serif;
+  font-size: 0.6875rem;
   font-weight: 700;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -83,16 +134,16 @@
 }
 
 .exhibit-id {
-  font-family: 'IBM Plex Mono', monospace;
+  font-family: 'JetBrains Mono', 'IBM Plex Mono', monospace;
   font-variant-numeric: tabular-nums;
-  font-size: 0.75rem;
+  font-size: 0.72rem;
   font-weight: 600;
   letter-spacing: 0.02em;
   background: var(--bg-panel);
   border: 1px solid var(--border-strong);
   color: var(--ink);
-  padding: 2px 7px;
-  border-radius: 4px;
+  padding: 2px 8px;
+  border-radius: 5px;
   display: inline-flex;
   align-items: center;
   gap: 5px;
@@ -110,7 +161,42 @@
 }
 
 .ledger-row:hover {
-  background-color: var(--bg-subtle);
+  background-color: #F2F4F6;
+}
+
+/* Refined vis-timeline styling */
+.vis-timeline {
+  border: 1px solid var(--border-hairline) !important;
+  border-radius: 8px !important;
+  background: #FAF9F6 !important;
+  font-family: 'Manrope', sans-serif !important;
+}
+.vis-time-axis .vis-text {
+  color: var(--muted) !important;
+  font-family: 'IBM Plex Mono', monospace !important;
+  font-size: 10px !important;
+}
+.vis-labelset .vis-label {
+  color: var(--ink) !important;
+  font-size: 11px !important;
+  font-weight: 600 !important;
+  background: #F1EFEA;
+}
+.vis-item {
+  border-radius: 5px !important;
+  font-size: 11px !important;
+}
+.vis-item.vis-selected {
+  border-color: var(--teal) !important;
+  background-color: var(--teal-light) !important;
+  box-shadow: 0 0 0 2px rgba(49, 106, 120, 0.2) !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
 }
 
 ::-webkit-scrollbar {
@@ -122,7 +208,7 @@
 }
 ::-webkit-scrollbar-thumb {
   background: var(--border-strong);
-  border-radius: 3px;
+  border-radius: 999px;
 }
 ::-webkit-scrollbar-thumb:hover {
   background: var(--muted);

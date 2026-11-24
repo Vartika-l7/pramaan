@@ -27,7 +27,7 @@ export const HashChip: React.FC<HashChipProps> = ({ hash, className = '' }) => {
       type="button"
       onClick={handleCopy}
       title={`SHA-256: ${hash} (click to copy)`}
-      className={`inline-flex items-center gap-1.5 font-mono text-xs px-2 py-0.5 rounded border border-border bg-paper text-ink hover:border-teal transition-colors duration-150 cursor-pointer whitespace-nowrap ${className}`}
+      className={`inline-flex items-center gap-1.5 font-mono text-[11.5px] px-2.5 py-0.5 rounded-md border border-border-strong bg-paper text-ink hover:border-teal hover:bg-teal-light/50 transition-all duration-150 cursor-pointer whitespace-nowrap ${className}`}
     >
       <span>{short}</span>
       {copied ? (

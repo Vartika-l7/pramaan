@@ -72,49 +72,54 @@ export const CaseBar: React.FC = () => {
     : [];
 
   return (
-    <header className="h-14 border-b border-border bg-panel px-5 flex items-center justify-between gap-3 select-none sticky top-0 z-30 whitespace-nowrap">
-      {/* Left: Case ID & Synthetic case tag */}
+    <header className="h-16 border-b border-border bg-white/90 backdrop-blur-md px-6 flex items-center justify-between gap-3 select-none sticky top-0 z-30 whitespace-nowrap">
+      {/* Left: Case Identifier & Synthetic Indicator */}
       <div className="flex items-center gap-2.5 shrink-0">
-        <span className="font-mono text-xs font-semibold text-ink bg-paper px-2.5 py-1 rounded border border-border-strong whitespace-nowrap">
-          {caseId}
-        </span>
-        <span className="font-sans text-[11px] font-semibold uppercase tracking-wider text-amber bg-amber-light px-2.5 py-0.5 rounded border border-amber-border whitespace-nowrap">
+        <div className="inline-flex items-center gap-2 bg-[#F5F4F0] px-3 py-1.5 rounded-md border border-[#C9C6BC]">
+          <span className="w-1.5 h-1.5 rounded-full bg-[#316A78]" aria-hidden="true" />
+          <span className="font-mono text-xs font-semibold text-[#20283A] tracking-tight">{caseId}</span>
+        </div>
+        <span className="font-mono text-[10.5px] font-semibold uppercase tracking-[0.07em] text-[#455066] bg-[#ECEAE3] px-2.5 py-1 rounded-md border border-[#D4D1C7]">
           Synthetic case
         </span>
       </div>
 
-      {/* Center: The Integrity Seal */}
+      {/* Center: Integrity Seal */}
       <div className="flex items-center shrink-0">
         <div
-          className={`flex items-center gap-2 px-3 py-1 rounded border text-xs font-sans transition-colors duration-150 whitespace-nowrap ${
+          className={`flex items-center gap-2.5 pl-3 pr-1.5 py-1 rounded-md border text-xs font-sans transition-all duration-150 whitespace-nowrap ${
             isIntact
-              ? 'bg-teal-light border-teal-border text-teal'
-              : 'bg-vermilion-light border-vermilion text-vermilion font-semibold'
+              ? 'bg-[#EAF2F4] border-[#B2CDD4] text-[#24525D]'
+              : 'bg-[#FDF0EE] border-[#D95749] text-[#A63327] font-semibold ring-1 ring-[#D95749]/20'
           }`}
         >
           {isIntact ? (
-            <ShieldCheck className="w-3.5 h-3.5 text-teal shrink-0" aria-hidden="true" />
+            <ShieldCheck className="w-3.5 h-3.5 text-[#316A78] shrink-0" aria-hidden="true" />
           ) : (
-            <AlertTriangle className="w-3.5 h-3.5 text-vermilion shrink-0" aria-hidden="true" />
+            <AlertTriangle className="w-3.5 h-3.5 text-[#C74437] shrink-0" aria-hidden="true" />
           )}
 
           {isLoading ? (
             <span className="text-xs font-medium">Verifying chain…</span>
           ) : isIntact ? (
             <div className="flex items-center gap-2 text-xs">
-              <span className="font-bold uppercase tracking-wide">Chain Intact</span>
-              <span className="text-border-strong">·</span>
-              <span className="text-ink font-mono">{integrity?.total_exhibits ?? 0} exhibits</span>
-              <span className="text-border-strong hidden xl:inline">·</span>
-              <span className="text-muted font-mono hidden xl:inline">
-                root <span className="text-ink font-semibold">{rootShort}</span>
+              <span className="font-bold uppercase tracking-[0.06em] text-[11px]">Chain Intact</span>
+              <span className="text-[#8EB4BE]">·</span>
+              <span className="text-[#20283A] font-mono text-[11.5px] font-medium">
+                {integrity?.total_exhibits ?? 0} exhibits
+              </span>
+              <span className="text-[#8EB4BE] hidden xl:inline">·</span>
+              <span className="text-[#455066] font-mono text-[11px] hidden xl:inline">
+                root <span className="text-[#20283A] font-semibold">{rootShort}</span>
               </span>
             </div>
           ) : (
             <div className="flex items-center gap-1.5 text-xs">
-              <span className="uppercase tracking-wide font-bold">Tampering Detected</span>
-              <span className="text-border-strong">·</span>
-              <span>{integrity?.failed_exhibit ? `Exhibit: ${integrity.failed_exhibit}` : 'Custody invalid'}</span>
+              <span className="uppercase tracking-[0.06em] font-bold text-[11px]">Tampering Detected</span>
+              <span className="opacity-50">·</span>
+              <span className="font-mono text-[11.5px]">
+                {integrity?.failed_exhibit ? `Exhibit ${integrity.failed_exhibit}` : 'Custody invalid'}
+              </span>
             </div>
           )}
 
@@ -123,7 +128,11 @@ export const CaseBar: React.FC = () => {
             disabled={verifyMutation.isPending}
             onClick={() => verifyMutation.mutate()}
             title="Recompute all SHA-256 digests and audit hash chain integrity"
-            className="ml-1 hover:bg-black/5 px-2 py-0.5 rounded text-[11px] font-sans font-semibold uppercase tracking-wider border border-current/25 cursor-pointer inline-flex items-center gap-1 transition-colors duration-150"
+            className={`ml-0.5 px-2.5 py-1 rounded text-[10.5px] font-sans font-semibold uppercase tracking-wider cursor-pointer inline-flex items-center gap-1 transition-colors duration-150 disabled:opacity-60 ${
+              isIntact
+                ? 'bg-white text-[#24525D] border border-[#B2CDD4] hover:bg-[#316A78] hover:text-white hover:border-[#316A78]'
+                : 'bg-[#C74437] text-white border border-[#C74437] hover:bg-[#A63327]'
+            }`}
           >
             <RefreshCw
               className={`w-3 h-3 ${verifyMutation.isPending ? 'animate-spin' : ''}`}
@@ -134,15 +143,15 @@ export const CaseBar: React.FC = () => {
         </div>
       </div>
 
-      {/* Right: Pipeline, Status Popover, and Quick Search */}
+      {/* Right: Deep Teal Primary CTA, Status Popover, and Quick Search */}
       <div className="flex items-center gap-2 relative shrink-0">
         <button
           type="button"
           disabled={isAnalyzing}
           onClick={() => analyzeMutation.mutate()}
-          className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-vermilion hover:bg-vermilion-dark text-white text-xs font-sans font-semibold rounded transition-colors duration-150 disabled:opacity-50 cursor-pointer whitespace-nowrap"
+          className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-[#316A78] hover:bg-[#24525D] text-white text-xs font-sans font-semibold rounded-md shadow-sm transition-colors duration-150 disabled:opacity-55 cursor-pointer whitespace-nowrap"
         >
-          <Layers className={`w-3.5 h-3.5 ${isAnalyzing ? 'animate-spin' : ''}`} aria-hidden="true" />
+          <Layers className={`w-3.5 h-3.5 text-white ${isAnalyzing ? 'animate-spin' : ''}`} aria-hidden="true" />
           <span>{isAnalyzing ? 'Running…' : 'Run Pipeline'}</span>
         </button>
 
@@ -152,46 +161,46 @@ export const CaseBar: React.FC = () => {
             type="button"
             onClick={() => setCapsOpen(!capsOpen)}
             aria-expanded={capsOpen}
-            className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-sans font-medium text-muted hover:text-ink border border-border rounded bg-paper hover:bg-paper-subtle transition-colors duration-150 cursor-pointer whitespace-nowrap"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-sans font-semibold text-[#20283A] hover:bg-[#ECEAE3] border border-[#C9C6BC] rounded-md bg-[#F5F4F0] transition-colors duration-150 cursor-pointer whitespace-nowrap"
           >
-            <Cpu className="w-3.5 h-3.5 text-teal" aria-hidden="true" />
+            <Cpu className="w-3.5 h-3.5 text-[#316A78]" aria-hidden="true" />
             <span>Status</span>
-            <ChevronDown className="w-3 h-3 text-muted" aria-hidden="true" />
+            <ChevronDown className={`w-3 h-3 text-[#556077] transition-transform ${capsOpen ? 'rotate-180' : ''}`} aria-hidden="true" />
           </button>
 
           {capsOpen && (
-            <div className="absolute right-0 mt-2 w-64 bg-panel border border-border-strong rounded p-3.5 text-xs z-50 space-y-2.5">
-              <div className="flex items-center justify-between border-b border-border pb-2">
-                <span className="font-sans text-[11px] uppercase font-bold tracking-wider text-ink">
+            <div className="absolute right-0 mt-2 w-72 bg-white border border-[#C9C6BC] rounded-lg p-4 text-xs z-50 space-y-3 shadow-popover">
+              <div className="flex items-center justify-between border-b border-border pb-2.5">
+                <span className="font-sans text-[11px] uppercase font-bold tracking-[0.09em] text-[#20283A]">
                   Offline Engines
                 </span>
-                <span className="text-[10px] font-mono font-semibold text-teal bg-teal-light px-2 py-0.5 rounded border border-teal-border">
+                <span className="text-[10px] font-mono font-semibold text-[#24525D] bg-[#EAF2F4] px-2 py-0.5 rounded border border-[#B2CDD4]">
                   OFFLINE
                 </span>
               </div>
-              <div className="space-y-2 text-xs whitespace-normal">
+              <div className="space-y-2.5 text-xs whitespace-normal">
                 <div className="flex items-center justify-between">
-                  <span className="text-muted">Local Model:</span>
-                  <span className={`font-medium flex items-center gap-1 ${caps?.ollama.available ? 'text-approved' : 'text-amber'}`}>
+                  <span className="text-[#556077]">Local Model</span>
+                  <span className={`font-semibold flex items-center gap-1 ${caps?.ollama.available ? 'text-[#246B4F]' : 'text-[#9A6819]'}`}>
                     {caps?.ollama.available ? <CheckCircle2 className="w-3.5 h-3.5" /> : <XCircle className="w-3.5 h-3.5" />}
                     {caps?.ollama.available ? 'Ollama' : 'Deterministic'}
                   </span>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span className="text-muted">OCR:</span>
-                  <span className={`font-medium flex items-center gap-1 ${caps?.tesseract.available ? 'text-approved' : 'text-muted'}`}>
+                  <span className="text-[#556077]">OCR Engine</span>
+                  <span className={`font-semibold flex items-center gap-1 ${caps?.tesseract.available ? 'text-[#246B4F]' : 'text-[#556077]'}`}>
                     {caps?.tesseract.available ? <CheckCircle2 className="w-3.5 h-3.5" /> : <XCircle className="w-3.5 h-3.5" />}
                     {caps?.tesseract.available ? 'Tesseract' : 'Unavailable'}
                   </span>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span className="text-muted">PDF Engine:</span>
-                  <span className="font-mono text-ink">{caps?.pdf_engine.engine || 'pdfplumber'}</span>
+                  <span className="text-[#556077]">PDF Engine</span>
+                  <span className="font-mono text-[#20283A] text-[11px]">{caps?.pdf_engine.engine || 'pdfplumber'}</span>
                 </div>
-                <div className="flex items-center justify-between pt-1 border-t border-border">
-                  <span className="text-muted">Network use:</span>
-                  <span className="font-mono font-semibold text-teal">
-                    {caps?.network_use?.outbound_connections ?? 0} outbound connections
+                <div className="flex items-center justify-between pt-2 border-t border-border">
+                  <span className="text-[#556077]">Network use</span>
+                  <span className="font-mono font-semibold text-[#24525D] text-[11px]">
+                    {caps?.network_use?.outbound_connections ?? 0} outbound
                   </span>
                 </div>
               </div>
@@ -201,8 +210,8 @@ export const CaseBar: React.FC = () => {
 
         {/* Quick Navigation Search Box */}
         <div className="relative">
-          <div className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs text-muted border border-border rounded bg-paper focus-within:border-teal transition-colors duration-150">
-            <Search className="w-3.5 h-3.5 text-muted shrink-0" aria-hidden="true" />
+          <div className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs border border-[#C9C6BC] rounded-md bg-[#F5F4F0] focus-within:border-[#316A78] focus-within:bg-white transition-all duration-150">
+            <Search className="w-3.5 h-3.5 text-[#556077] shrink-0" aria-hidden="true" />
             <input
               type="text"
               value={searchQuery}
@@ -211,12 +220,12 @@ export const CaseBar: React.FC = () => {
               onBlur={() => setTimeout(() => setSearchFocused(false), 180)}
               placeholder="Jump to…"
               aria-label="Quick navigation"
-              className="bg-transparent border-none outline-none text-xs text-ink placeholder:text-muted w-24 focus:w-32 transition-all duration-150 font-sans"
+              className="bg-transparent border-none outline-none text-xs text-[#20283A] placeholder:text-[#556077] w-20 focus:w-32 transition-all duration-150 font-sans"
             />
           </div>
 
           {searchFocused && filteredRoutes.length > 0 && (
-            <div className="absolute right-0 mt-1.5 w-44 bg-panel border border-border-strong rounded py-1 z-50 text-xs">
+            <div className="absolute right-0 mt-2 w-48 bg-white border border-[#C9C6BC] rounded-lg py-1.5 z-50 text-xs shadow-popover">
               {filteredRoutes.map((r) => (
                 <button
                   key={r.path}
@@ -225,7 +234,7 @@ export const CaseBar: React.FC = () => {
                     navigate(r.path);
                     setSearchQuery('');
                   }}
-                  className="w-full text-left px-3 py-1.5 hover:bg-paper-subtle cursor-pointer text-ink font-sans"
+                  className="w-full text-left px-3.5 py-2 hover:bg-[#ECEAE3] cursor-pointer text-[#20283A] font-medium font-sans transition-colors"
                 >
                   {r.label}
                 </button>

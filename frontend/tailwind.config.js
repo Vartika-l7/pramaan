@@ -4,34 +4,63 @@ export default {
   theme: {
     extend: {
       colors: {
-        paper: { DEFAULT: '#FBF8F3', subtle: '#F4EFE6' },
-        ivory: { DEFAULT: '#FBF8F3', dark: '#F4EFE6' },
-        surface: { DEFAULT: '#FBF8F3', raised: '#FFFFFF' },
+        /* Warm Pearl & Neutral Surfaces */
+        paper: { DEFAULT: '#F5F4F0', subtle: '#ECEAE3' },
+        ivory: { DEFAULT: '#F5F4F0', dark: '#ECEAE3' },
+        surface: { DEFAULT: '#F5F4F0', raised: '#FFFFFF' },
         panel: '#FFFFFF',
-        ink: { DEFAULT: '#2B1B17', secondary: '#7A5C52', tertiary: '#7A5C52', muted: '#7A5C52' },
-        muted: '#7A5C52',
-        border: { DEFAULT: '#E8D9CC', strong: '#D3BEAE' },
-        vermilion: { DEFAULT: '#DB4A2B', dark: '#B83A1F', light: '#FDF0EC' },
-        teal: { DEFAULT: '#2E5E6E', light: '#EDF4F6', border: '#B8D0D8' },
-        amber: { DEFAULT: '#C97B1A', light: '#FCF4E8', border: '#E8C99B' },
-        approved: { DEFAULT: '#3F7D58', light: '#EEF6F1', border: '#B4D4C0' },
-        /* Compatibility aliases mapped strictly to the new tokens */
-        cobalt: { DEFAULT: '#2E5E6E', light: '#EDF4F6', dark: '#234955' },
-        tomato: { DEFAULT: '#DB4A2B', light: '#FDF0EC', dark: '#B83A1F' },
-        ochre: { DEFAULT: '#C97B1A', light: '#FCF4E8', dark: '#C97B1A' },
-        lime: { DEFAULT: '#3F7D58', light: '#EEF6F1', dark: '#3F7D58' },
+
+        /* Midnight Ink Anchor Surface (#20283A) */
+        obsidian: { DEFAULT: '#20283A', elevated: '#2B364E', muted: '#364360' },
+
+        /* High-Contrast Ink & Slate Secondary Text */
+        ink: { DEFAULT: '#20283A', secondary: '#455066', tertiary: '#5E6A82', muted: '#556077' },
+        muted: '#556077',
+
+        /* Architectural Stone Hairline Borders */
+        border: { DEFAULT: '#E1DFD7', strong: '#C9C6BC' },
+
+        /* Primary Brand & Action Accent: Deep Teal (#316A78) */
+        teal: { DEFAULT: '#316A78', dark: '#24525D', light: '#EAF2F4', border: '#B2CDD4' },
+
+        /* Secondary Interactive Accent: Slate Blue (#5576A5) */
+        slate: { DEFAULT: '#5576A5', dark: '#415E87', light: '#EEF2F8', border: '#C1CFE4' },
+        violet: { DEFAULT: '#5576A5', dark: '#415E87', light: '#EEF2F8', border: '#C1CFE4' },
+
+        /* Warning / Medium Severity Accent: Muted Amber (#D59A45, AA text #8F6018) */
+        amber: { DEFAULT: '#9A6819', fill: '#D59A45', dark: '#7D5312', light: '#FCF5E7', border: '#E8CFA0' },
+
+        /* Critical Integrity Alerts: Alert Coral (#D95749, AA text #B83A2D) */
+        vermilion: { DEFAULT: '#C74437', fill: '#D95749', dark: '#A63327', light: '#FDF0EE' },
+
+        /* Human-Approved Admissibility: Forest Emerald */
+        approved: { DEFAULT: '#246B4F', light: '#ECF6F1', border: '#B2D9C7' },
+
+        /* Compatibility aliases */
+        cobalt: { DEFAULT: '#316A78', light: '#EAF2F4', dark: '#24525D' },
+        tomato: { DEFAULT: '#C74437', light: '#FDF0EE', dark: '#A63327' },
+        ochre: { DEFAULT: '#9A6819', light: '#FCF5E7', dark: '#7D5312' },
+        lime: { DEFAULT: '#246B4F', light: '#ECF6F1', dark: '#246B4F' },
       },
       fontFamily: {
-        serif: ['"Source Serif 4"', 'Georgia', 'serif'],
-        sans: ['"IBM Plex Sans"', '-apple-system', 'BlinkMacSystemFont', 'sans-serif'],
-        mono: ['"IBM Plex Mono"', 'monospace'],
+        serif: ['"DM Serif Display"', '"Source Serif 4"', 'Georgia', 'serif'],
+        editorial: ['"DM Serif Display"', '"Source Serif 4"', 'Georgia', 'serif'],
+        sans: ['"Plus Jakarta Sans"', '"IBM Plex Sans"', '-apple-system', 'BlinkMacSystemFont', 'sans-serif'],
+        mono: ['"JetBrains Mono"', '"IBM Plex Mono"', 'monospace'],
       },
       borderRadius: {
-        DEFAULT: '6px',
-        sm: '4px',
-        md: '6px',
-        lg: '6px',
-        xl: '6px',
+        sm: '5px',
+        DEFAULT: '8px',
+        md: '8px',
+        lg: '12px',
+        xl: '14px',
+        '2xl': '16px',
+      },
+      boxShadow: {
+        card: '0 1px 2px rgba(32, 40, 58, 0.04), 0 6px 18px -12px rgba(32, 40, 58, 0.10)',
+        'card-hover': '0 2px 6px rgba(32, 40, 58, 0.06), 0 12px 24px -12px rgba(32, 40, 58, 0.14)',
+        popover: '0 10px 28px -6px rgba(32, 40, 58, 0.16), 0 2px 6px rgba(32, 40, 58, 0.06)',
+        obsidian: '0 14px 34px -14px rgba(32, 40, 58, 0.38)',
       },
       fontSize: {
         '2xs': ['0.6875rem', { lineHeight: '1rem' }],

@@ -17,33 +17,39 @@ export const WorkspaceHeader: React.FC<WorkspaceHeaderProps> = ({
   const isEvidence = workspace === 'evidence';
   const isInvestigation = workspace === 'investigation';
 
-  const barColor = isEvidence
-    ? 'border-t-2 border-t-[#2E5E6E] text-[#2E5E6E]'
+  const pillClasses = isEvidence
+    ? 'bg-[#EAF2F4] text-[#24525D] border-[#B2CDD4]'
     : isInvestigation
-    ? 'border-t-2 border-t-[#C97B1A] text-[#C97B1A]'
-    : 'border-t-2 border-t-[#E8D9CC] text-[#7A5C52]';
+    ? 'bg-[#EEF2F8] text-[#415E87] border-[#C1CFE4]'
+    : 'bg-white text-[#455066] border-[#C9C6BC]';
 
   const label = isEvidence
-    ? 'Workspace 1 · Evidence and Court Package (Provable & Human-Approved)'
+    ? 'Workspace 1 · Evidence & Court Package'
     : isInvestigation
-    ? 'Workspace 2 · Investigation (Leads Until Human-Approved)'
-    : 'Case Dossier Overview';
+    ? 'Workspace 2 · Investigation & Correlation'
+    : 'Forensic Dossier · PRAMAAN';
 
   const Icon = isEvidence ? ShieldCheck : isInvestigation ? Compass : Layers;
 
   return (
-    <header className={`pt-2 pb-4 border-b border-border flex flex-col sm:flex-row sm:items-end justify-between gap-3 ${barColor}`}>
-      <div className="space-y-1">
-        <div className="flex items-center gap-1.5 font-sans text-[11px] font-bold uppercase tracking-[0.08em]">
+    <header className="pb-6 border-b border-border flex flex-col sm:flex-row sm:items-end justify-between gap-4">
+      <div className="space-y-2.5">
+        <div
+          className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded border font-sans text-[10.5px] font-bold uppercase tracking-[0.09em] ${pillClasses}`}
+        >
           <Icon className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
           <span>{label}</span>
         </div>
-        <h1 className="font-serif text-2xl sm:text-3xl font-bold text-ink leading-tight">
+        <h1 className="font-serif text-[36px] sm:text-[42px] text-[#20283A] leading-[1.08] tracking-[-0.02em]">
           {title}
         </h1>
-        {subtitle && <p className="text-sm text-muted max-w-3xl">{subtitle}</p>}
+        {subtitle && (
+          <p className="text-[14px] text-[#455066] max-w-2xl leading-relaxed font-sans">
+            {subtitle}
+          </p>
+        )}
       </div>
-      {actions && <div className="flex items-center gap-2 shrink-0">{actions}</div>}
+      {actions && <div className="flex items-center gap-2.5 shrink-0">{actions}</div>}
     </header>
   );
 };

@@ -60,8 +60,8 @@ def test_network_guard_blocks_external_and_counts():
         assert get_outbound_count() == 2
 
         # System capabilities endpoint reports real outbound counter
-        client = TestClient(app)
-        resp = client.get("/api/system/capabilities")
+        with TestClient(app) as client:
+            resp = client.get("/api/system/capabilities")
         assert resp.status_code == 200
         data = resp.json()
         assert data["network_use"]["outbound_connections"] == 2
@@ -96,75 +96,78 @@ def test_ai_run_records_custody_and_explain_panel(tmp_path: Path):
     ingest_svc.EVIDENCE_STORE_DIR = tmp_path / "evidence_store"
     try:
         conn = _fresh_conn()
-        with open(DATA_DIR / "whatsapp_chat_meera_vikram.txt", "rb") as f:
-            ev_meta = ingest_file(conn, f, "whatsapp_chat_meera_vikram.txt", actor="TEST")
-        parse_and_store_evidence(conn, ev_meta["id"], actor="TEST")
+        try:
+            with open(DATA_DIR / "whatsapp_chat_meera_vikram.txt", "rb") as f:
+                ev_meta = ingest_file(conn, f, "whatsapp_chat_meera_vikram.txt", actor="TEST")
+            parse_and_store_evidence(conn, ev_meta["id"], actor="TEST")
 
-        events = [dict(r) for r in conn.execute("SELECT id, ts_utc, kind, text, amount, actor, counterparty FROM events;").fetchall()]
-        prov = DeterministicProvider()
-        drafted = prov.draft_claims({"events": events, "anomalies": [], "edges": []})
+            events = [dict(r) for r in conn.execute("SELECT id, ts_utc, kind, text, amount, actor, counterparty FROM events;").fetchall()]
+            prov = DeterministicProvider()
+            drafted = prov.draft_claims({"events": events, "anomalies": [], "edges": []})
 
-        run_rec = record_ai_run(
-            conn,
-            task="claim_drafting",
-            model_name=prov.model_name,
-            model_version=prov.model_version,
-            parameters=prov.parameters,
-            prompt=prov.last_prompt,
-            input_record_ids=[e["id"] for e in events],
-            raw_output=prov.last_raw_output,
-            verifier_result={"status": "PENDING"},
-        )
-        assert run_rec["parameters"] == {"temperature": 0, "seed": 42}
-        assert len(run_rec["record_sha256"]) == 64
+            run_rec = record_ai_run(
+                conn,
+                task="claim_drafting",
+                model_name=prov.model_name,
+                model_version=prov.model_version,
+                parameters=prov.parameters,
+                prompt=prov.last_prompt,
+                input_record_ids=[e["id"] for e in events],
+                raw_output=prov.last_raw_output,
+                verifier_result={"status": "PENDING"},
+            )
+            assert run_rec["parameters"] == {"temperature": 0, "seed": 42}
+            assert len(run_rec["record_sha256"]) == 64
 
-        for c in drafted:
-            c["ai_run_id"] = run_rec["id"]
-        ver = verify_claims(conn, drafted)
-        assert ver["verified_count"] >= 1
+            for c in drafted:
+                c["ai_run_id"] = run_rec["id"]
+            ver = verify_claims(conn, drafted)
+            assert ver["verified_count"] >= 1
 
-        # Custody log must contain AI_RUN_RECORDED and AI_VERIFIER_RECORDED and remain hash-chain valid
-        actions = [r["action"] for r in conn.execute("SELECT action FROM custody_log ORDER BY seq ASC;").fetchall()]
-        assert "AI_RUN_RECORDED" in actions
-        assert "AI_VERIFIER_RECORDED" in actions
-        chain_ok, _, err = verify_chain(conn)
-        assert chain_ok is True, err
+            # Custody log must contain AI_RUN_RECORDED and AI_VERIFIER_RECORDED and remain hash-chain valid
+            actions = [r["action"] for r in conn.execute("SELECT action FROM custody_log ORDER BY seq ASC;").fetchall()]
+            assert "AI_RUN_RECORDED" in actions
+            assert "AI_VERIFIER_RECORDED" in actions
+            chain_ok, _, err = verify_chain(conn)
+            assert chain_ok is True, err
 
-        # Build 4-part Explain payload for verified claim
-        vc = ver["verified_claims"][0]
-        explain = build_explain_payload(
-            conn,
-            record_ids=vc["refs"],
-            ai_run_id=run_rec["id"],
-            item_type="claim",
-            item_id=vc["id"],
-        )
-        assert set(explain.keys()) == {
-            "what_model_saw",
-            "what_model_said",
-            "what_verifier_kept_and_removed",
-            "who_approved",
-        }
-        assert explain["who_approved"]["label"] == "not yet approved"
-        assert len(explain["what_model_saw"]["exhibits"]) >= 1
+            # Build 4-part Explain payload for verified claim
+            vc = ver["verified_claims"][0]
+            explain = build_explain_payload(
+                conn,
+                record_ids=vc["refs"],
+                ai_run_id=run_rec["id"],
+                item_type="claim",
+                item_id=vc["id"],
+            )
+            assert set(explain.keys()) == {
+                "what_model_saw",
+                "what_model_said",
+                "what_verifier_kept_and_removed",
+                "who_approved",
+            }
+            assert explain["who_approved"]["label"] == "not yet approved"
+            assert len(explain["what_model_saw"]["exhibits"]) >= 1
 
-        # Assistant answer, leads, and challenger objections all include Explain payloads and AI run records
-        ans = ask_assistant(conn, "Who is connected to vikram.alpha@okaxis?", session_id="t_explain")
-        assert "explain" in ans and "ai_run_id" in ans and "record_sha256" in ans
-        assert ans["explain"]["who_approved"]["label"] == "not yet approved"
+            # Assistant answer, leads, and challenger objections all include Explain payloads and AI run records
+            ans = ask_assistant(conn, "Who is connected to vikram.alpha@okaxis?", session_id="t_explain")
+            assert "explain" in ans and "ai_run_id" in ans and "record_sha256" in ans
+            assert ans["explain"]["who_approved"]["label"] == "not yet approved"
 
-        leads = suggest_next_leads(conn)
-        assert isinstance(leads, list)
+            leads = suggest_next_leads(conn)
+            assert isinstance(leads, list)
 
-        chal = run_challenger_analysis(conn)
-        assert chal["total_objections"] >= 1
-        assert "explain" in chal["objections"][0]
-        assert chal["objections"][0]["explain"]["who_approved"]["label"] == "not yet approved"
+            chal = run_challenger_analysis(conn)
+            assert chal["total_objections"] >= 1
+            assert "explain" in chal["objections"][0]
+            assert chal["objections"][0]["explain"]["who_approved"]["label"] == "not yet approved"
 
-        # Unanswerable question mentioning an entity must still refuse cleanly
-        unans = ask_assistant(conn, "What is the flight number for Vikram's trip to Dubai?", session_id="t_unans")
-        assert "found nothing in the evidence" in unans["answer"].lower()
-        assert unans["claims"] == []
+            # Unanswerable question mentioning an entity must still refuse cleanly
+            unans = ask_assistant(conn, "What is the flight number for Vikram's trip to Dubai?", session_id="t_unans")
+            assert "found nothing in the evidence" in unans["answer"].lower()
+            assert unans["claims"] == []
+        finally:
+            conn.close()
     finally:
         ingest_svc.EVIDENCE_STORE_DIR = orig_store
 

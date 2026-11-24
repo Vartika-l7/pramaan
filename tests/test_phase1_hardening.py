@@ -162,17 +162,17 @@ def test_kat_abc_sha256():
     assert hash_stream(io.BytesIO(b"abc")) == expected
 
 
-def test_kat_streaming_vs_oneshot_large_file_and_os_tool(tmp_path):
-    """Generate 200 MB file, test streaming == oneshot == OS tool."""
-    large_file = tmp_path / "large_200mb.bin"
-    chunk = b"PRAMAAN_EVIDENCE_INTEGRITY_2026_" * 32  # 1024 bytes
-    repeats = 200 * 1024  # 200 MB
+def test_kat_streaming_vs_oneshot_large_file_and_os_tool(tmp_path, request):
+    """Generate large file (32 MB default; 200 MB with --run-slow), test streaming == oneshot == OS tool."""
+    size_mb = 200 if request.config.getoption("--run-slow") else 32
+    large_file = tmp_path / f"large_{size_mb}mb.bin"
+    chunk = b"PRAMAAN_EVIDENCE_INTEGRITY_2026_" * 32 * 1024  # 1 MB chunk for fast generation
 
     with open(large_file, "wb") as f:
-        for _ in range(repeats):
+        for _ in range(size_mb):
             f.write(chunk)
 
-    assert large_file.stat().st_size == 200 * 1024 * 1024
+    assert large_file.stat().st_size == size_mb * 1024 * 1024
 
     stream_hash = hash_file(large_file)
 
@@ -316,8 +316,13 @@ def test_tamper_replace_file_same_size_and_swap_exhibits(clean_db):
     assert "EX-001" in failed and "EX-002" in failed
 
 
-def test_property_single_byte_mutation_fails_verification(clean_db):
-    """Property-style randomized test: ANY single-byte mutation in any evidence file fails verification."""
+def test_property_single_byte_mutation_fails_verification(clean_db, request):
+    """Property-style randomized test: ANY single-byte mutation in any evidence file fails verification.
+    Runs 25 examples by default, or 100 examples with --run-slow.
+    """
+    max_examples = 100 if request.config.getoption("--run-slow") else 25
+    rng = random.Random(42)
+
     payloads = [
         b"Case file 1: WhatsApp chat log alpha",
         b"Case file 2: Call detail records beta 99",
@@ -330,20 +335,26 @@ def test_property_single_byte_mutation_fails_verification(clean_db):
 
     assert verify_case_integrity(clean_db)["intact"] is True
 
-    # Mutate 1 random byte in 1 random exhibit file
-    target_exhibit = random.choice(exhibits)
-    target_path = Path(target_exhibit["stored_path"])
+    for _ in range(max_examples):
+        target_exhibit = rng.choice(exhibits)
+        target_path = Path(target_exhibit["stored_path"])
+        original_bytes = target_path.read_bytes()
 
-    os.chmod(target_path, 0o666)
-    content = bytearray(target_path.read_bytes())
-    mutation_idx = random.randint(0, len(content) - 1)
-    content[mutation_idx] ^= 0xFF
-    target_path.write_bytes(content)
-    os.chmod(target_path, 0o444)
+        os.chmod(target_path, 0o666)
+        try:
+            content = bytearray(original_bytes)
+            mutation_idx = rng.randint(0, len(content) - 1)
+            content[mutation_idx] ^= 0xFF
+            target_path.write_bytes(content)
+            os.chmod(target_path, 0o444)
 
-    verif = verify_case_integrity(clean_db)
-    assert verif["intact"] is False
-    assert verif["failed_exhibit"] == target_exhibit["exhibit_id"]
+            verif = verify_case_integrity(clean_db)
+            assert verif["intact"] is False
+            assert verif["failed_exhibit"] == target_exhibit["exhibit_id"]
+        finally:
+            os.chmod(target_path, 0o666)
+            target_path.write_bytes(original_bytes)
+            os.chmod(target_path, 0o444)
 
 
 # ==============================================================================

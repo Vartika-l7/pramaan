@@ -177,56 +177,56 @@ export const KnowledgeGraphPage: React.FC = () => {
           selector: 'node',
           style: {
             label: 'data(label)',
-            'font-family': 'IBM Plex Sans, sans-serif',
+            'font-family': 'Manrope, IBM Plex Sans, sans-serif',
             'font-size': '11px',
             'font-weight': 600,
-            color: '#2B1B17',
+            color: '#20283A',
             'text-valign': 'bottom',
-            'text-margin-y': 5,
+            'text-margin-y': 6,
             width: 30,
             height: 30,
             'background-color': '#FFFFFF',
             'border-width': 1.5,
-            'border-color': '#D3BEAE',
+            'border-color': '#C9C6BC',
           },
         },
         {
           selector: 'node[type = "PERSON"]',
-          style: { 'background-color': '#EDF4F6', 'border-color': '#2E5E6E' },
+          style: { 'background-color': '#EAF2F4', 'border-color': '#316A78' },
         },
         {
           selector: 'node[type = "LOCATION"], node[type = "EPISODE"]',
-          style: { shape: 'diamond', 'background-color': '#FCF4E8', 'border-color': '#C97B1A' },
+          style: { shape: 'diamond', 'background-color': '#EEF2F8', 'border-color': '#5576A5' },
         },
         {
           selector: 'node:selected',
-          style: { 'border-width': 3, 'border-color': '#DB4A2B' },
+          style: { 'border-width': 3, 'border-color': '#20283A' },
         },
         {
           selector: 'edge',
           style: {
-            width: 2,
-            'line-color': '#D3BEAE',
-            'target-arrow-color': '#D3BEAE',
+            width: 1.8,
+            'line-color': '#C9C6BC',
+            'target-arrow-color': '#C9C6BC',
             'target-arrow-shape': 'triangle',
             'curve-style': 'bezier',
           },
         },
         {
           selector: 'edge[tier = "LEAD"]',
-          style: { 'line-color': '#C97B1A', 'target-arrow-color': '#C97B1A', 'line-style': 'dashed' },
+          style: { 'line-color': '#5576A5', 'target-arrow-color': '#5576A5', 'line-style': 'dashed' },
         },
         {
           selector: 'edge[tier = "VERIFIED BY CODE"]',
-          style: { 'line-color': '#2E5E6E', 'target-arrow-color': '#2E5E6E' },
+          style: { 'line-color': '#316A78', 'target-arrow-color': '#316A78' },
         },
         {
           selector: 'edge[tier = "APPROVED"]',
-          style: { 'line-color': '#3F7D58', 'target-arrow-color': '#3F7D58', width: 2.5 },
+          style: { 'line-color': '#246B4F', 'target-arrow-color': '#246B4F', width: 2.5 },
         },
         {
           selector: 'edge:selected',
-          style: { 'line-color': '#DB4A2B', 'target-arrow-color': '#DB4A2B', width: 3 },
+          style: { 'line-color': '#D95749', 'target-arrow-color': '#D95749', width: 3 },
         },
       ],
       layout: { name: 'fcose', animate: false, nodeRepulsion: 5500, idealEdgeLength: 90 } as any,
@@ -263,9 +263,9 @@ export const KnowledgeGraphPage: React.FC = () => {
         subtitle="Cross-source entity and relationship network. Correlated links remain LEADs until human-approved in Review and Report."
       />
 
-      <div className="flex-1 grid grid-cols-1 lg:grid-cols-12 gap-4 min-h-0">
+      <div className="flex-1 grid grid-cols-1 lg:grid-cols-12 gap-5 min-h-0">
         {/* Slim Left Filter Column */}
-        <aside className="lg:col-span-3 bg-panel border border-border rounded p-4 space-y-4 overflow-y-auto text-xs">
+        <aside className="lg:col-span-3 editorial-card p-5 space-y-4 overflow-y-auto text-xs">
           <div className="space-y-1.5">
             <label htmlFor="graph-search" className="section-label block">Search Entities</label>
             <div className="flex items-center gap-1.5 px-2.5 py-1.5 border border-border rounded bg-paper">
@@ -350,8 +350,8 @@ export const KnowledgeGraphPage: React.FC = () => {
           </div>
         </aside>
 
-        {/* Center Full-Height Canvas */}
-        <div className="lg:col-span-6 bg-panel border border-border rounded relative overflow-hidden min-h-[380px]">
+        {/* Center Full-Height Analytical Canvas */}
+        <div className="lg:col-span-6 forensic-grid-bg border border-border rounded-2xl shadow-card relative overflow-hidden min-h-[380px]">
           {isLoading ? (
             <SkeletonBlock className="h-full w-full" />
           ) : filteredNodes.length === 0 ? (
@@ -367,7 +367,7 @@ export const KnowledgeGraphPage: React.FC = () => {
         </div>
 
         {/* Right Detail Panel ("Why this link" / Node Profile) */}
-        <aside className="lg:col-span-3 bg-panel border border-border rounded p-4 overflow-y-auto space-y-4 text-xs">
+        <aside className="lg:col-span-3 editorial-card p-5 overflow-y-auto space-y-4 text-xs">
           {selectedEdgeId ? (
             edgeLoading ? (
               <SkeletonBlock className="h-40" />
@@ -428,7 +428,7 @@ export const KnowledgeGraphPage: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => navigate(`/assistant?focus=${encodeURIComponent(entityDetail.display)}`)}
-                  className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded bg-amber text-white font-semibold cursor-pointer"
+                  className="inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-md bg-[#316A78] hover:bg-[#24525D] text-white font-semibold cursor-pointer transition-colors"
                 >
                   <MessageSquare className="w-3.5 h-3.5" />
                   <span>Ask about this</span>
@@ -436,9 +436,9 @@ export const KnowledgeGraphPage: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => navigate('/reconstruction')}
-                  className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded border border-border bg-paper text-ink font-medium cursor-pointer"
+                  className="inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-md border border-[#C9C6BC] bg-[#F5F4F0] hover:bg-[#ECEAE3] text-[#20283A] font-medium cursor-pointer transition-colors"
                 >
-                  <Compass className="w-3.5 h-3.5 text-amber" />
+                  <Compass className="w-3.5 h-3.5 text-[#5576A5]" />
                   <span>Show on reconstruction</span>
                 </button>
               </div>

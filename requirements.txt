@@ -17,5 +17,6 @@ ExifRead==3.5.1
 reportlab==5.1.0
 qrcode==8.2
 pytest==9.2.0
+pytest-timeout==2.4.0
 httpx==0.28.1
 pytz==2026.6

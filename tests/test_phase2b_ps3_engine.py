@@ -149,10 +149,10 @@ def test_clock_offset_and_haversine():
     assert lookup_ip_location("203.0.113.45")["place_name"] == "location unknown"
 
 
-def _ingest_full_case(conn: sqlite3.Connection):
+def _ingest_full_case(conn: sqlite3.Connection, data_dir: Path = DATA_DIR):
     files = sorted(
-        f for f in DATA_DIR.iterdir()
-        if f.is_file() and f.name not in ("ground_truth.json", "benchmark_results.json", "tower_registry.csv")
+        f for f in data_dir.iterdir()
+        if f.is_file() and f.name not in ("ground_truth.json", "benchmark_results.json", "assistant_eval_results.json", "tower_registry.csv")
     )
     for f in files:
         with open(f, "rb") as fh:
@@ -168,56 +168,61 @@ def _ingest_full_case(conn: sqlite3.Connection):
     generate_event_sequence(conn)
 
 
-def test_graph_sequence_scene_determinism_and_gt_recall():
+@pytest.mark.integration
+def test_graph_sequence_scene_determinism_and_gt_recall(synthetic_dataset_dir: Path):
     conn1 = _fresh_conn()
     conn2 = _fresh_conn()
-    _ingest_full_case(conn1)
-    _ingest_full_case(conn2)
+    try:
+        _ingest_full_case(conn1, synthetic_dataset_dir)
+        _ingest_full_case(conn2, synthetic_dataset_dir)
 
-    g1 = get_cytoscape_graph(conn1)
-    g2 = get_cytoscape_graph(conn2)
-    assert [n["data"]["id"] for n in g1["nodes"]] == [n["data"]["id"] for n in g2["nodes"]]
-    assert [e["data"]["id"] for e in g1["edges"]] == [e["data"]["id"] for e in g2["edges"]]
+        g1 = get_cytoscape_graph(conn1)
+        g2 = get_cytoscape_graph(conn2)
+        assert [n["data"]["id"] for n in g1["nodes"]] == [n["data"]["id"] for n in g2["nodes"]]
+        assert [e["data"]["id"] for e in g1["edges"]] == [e["data"]["id"] for e in g2["edges"]]
 
-    xml_out = export_graph_graphml(g1)
-    assert "<graphml" in xml_out and "PRAMAAN_KG" in xml_out
+        xml_out = export_graph_graphml(g1)
+        assert "<graphml" in xml_out and "PRAMAAN_KG" in xml_out
 
-    # Sequence determinism
-    seq1 = generate_event_sequence(conn1)
-    seq2 = generate_event_sequence(conn2)
-    assert len(seq1) > 0
-    assert [ep["title"] for ep in seq1] == [ep["title"] for ep in seq2]
-    md = export_sequence_markdown(seq1)
-    assert "# PRAMAAN Automated Event Sequence" in md
+        # Sequence determinism
+        seq1 = generate_event_sequence(conn1)
+        seq2 = generate_event_sequence(conn2)
+        assert len(seq1) > 0
+        assert [ep["title"] for ep in seq1] == [ep["title"] for ep in seq2]
+        md = export_sequence_markdown(seq1)
+        assert "# PRAMAAN Automated Event Sequence" in md
 
-    # Scene reconstruction & replay
-    ep_id = seq1[0]["id"]
-    scene = reconstruct_scene(conn1, episode_id=ep_id)
-    assert "locations" in scene and "presence" in scene and "events" in scene
-    replay = replay_scene(conn1, episode_id=ep_id)
-    assert replay["total_steps"] == len(scene["events"])
+        # Scene reconstruction & replay
+        ep_id = seq1[0]["id"]
+        scene = reconstruct_scene(conn1, episode_id=ep_id)
+        assert "locations" in scene and "presence" in scene and "events" in scene
+        replay = replay_scene(conn1, episode_id=ep_id)
+        assert replay["total_steps"] == len(scene["events"])
 
-    # Ground truth recall GT-01..GT-15
-    edge_types = {e["data"]["edge_type"] for e in g1["edges"]}
-    anom_kinds = {r["kind"] for r in conn1.execute("SELECT kind FROM anomalies;").fetchall()}
-    custody_actions = {r["action"] for r in conn1.execute("SELECT action FROM custody_log;").fetchall()}
+        # Ground truth recall GT-01..GT-15
+        edge_types = {e["data"]["edge_type"] for e in g1["edges"]}
+        anom_kinds = {r["kind"] for r in conn1.execute("SELECT kind FROM anomalies;").fetchall()}
+        custody_actions = {r["action"] for r in conn1.execute("SELECT action FROM custody_log;").fetchall()}
 
-    # Verify all 15 planted facts
-    assert "SAME_IDENTIFIER" in edge_types          # GT-01
-    assert "PATTERN_FUNNEL" in edge_types           # GT-02
-    assert "SAME_DEVICE" in edge_types              # GT-03 & GT-15
-    assert "ANOMALY_CHAT_GAP" in anom_kinds         # GT-04
-    assert "ANOMALY_OUT_OF_ORDER" in anom_kinds     # GT-05
-    assert "ANOMALY_IMAGE_EDITED" in anom_kinds     # GT-06
-    assert "SAME_MEDIA" in edge_types               # GT-07
-    assert "ANOMALY_BALANCE_MISMATCH" in anom_kinds # GT-08
-    assert "SAME_PERSON_FUZZY" in edge_types        # GT-09
-    assert "SPATIAL_THREAD" in anom_kinds           # GT-10
-    assert "IMPOSSIBLE_TRAVEL" in anom_kinds        # GT-11
-    assert "SHARED_IP_CROSS_SOURCE" in edge_types   # GT-12
-    assert "TEMPORAL_CO_OCCURRENCE" in edge_types   # GT-13
-    assert "CLOCK_OFFSET_RECORDED" in custody_actions # GT-14
-    assert "LOGIN_FROM_IP" in edge_types            # GT-15
+        # Verify all 15 planted facts
+        assert "SAME_IDENTIFIER" in edge_types          # GT-01
+        assert "PATTERN_FUNNEL" in edge_types           # GT-02
+        assert "SAME_DEVICE" in edge_types              # GT-03 & GT-15
+        assert "ANOMALY_CHAT_GAP" in anom_kinds         # GT-04
+        assert "ANOMALY_OUT_OF_ORDER" in anom_kinds     # GT-05
+        assert "ANOMALY_IMAGE_EDITED" in anom_kinds     # GT-06
+        assert "SAME_MEDIA" in edge_types               # GT-07
+        assert "ANOMALY_BALANCE_MISMATCH" in anom_kinds # GT-08
+        assert "SAME_PERSON_FUZZY" in edge_types        # GT-09
+        assert "SPATIAL_THREAD" in anom_kinds           # GT-10
+        assert "IMPOSSIBLE_TRAVEL" in anom_kinds        # GT-11
+        assert "SHARED_IP_CROSS_SOURCE" in edge_types   # GT-12
+        assert "TEMPORAL_CO_OCCURRENCE" in edge_types   # GT-13
+        assert "CLOCK_OFFSET_RECORDED" in custody_actions # GT-14
+        assert "LOGIN_FROM_IP" in edge_types            # GT-15
 
-    # Verify each pluggable correlator ran
-    assert len(DEFAULT_CORRELATORS) == 10
+        # Verify each pluggable correlator ran
+        assert len(DEFAULT_CORRELATORS) == 10
+    finally:
+        conn1.close()
+        conn2.close()
